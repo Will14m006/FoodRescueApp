@@ -4,21 +4,20 @@
 Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di akhir jam operasional kepada pengguna (Pembeli) dengan harga diskon. Aplikasi ini mengelola ketersediaan stok secara *real-time* dan menggunakan sistem validasi kode *pick-up* untuk pengambilan di tempat.
 
 ## 2. Tech Stack
-* **Frontend:** React + TypeScript + Vite + Tailwind CSS
-* **Backend:** Node.js + TypeScript + Express
-* **Database:** MySQL
-* **ORM:** Prisma
-* **API style:** REST API
-* **Infrastruktur:** Docker Compose for MySQL
-* **Environment:** Use `.env.example` for database URL and optional ports.
+* **Frontend (Mobile):** Flutter (Dart)
+* **State Management:** Riverpod (`flutter_riverpod`)
+* **Backend & Web Admin:** Laravel (PHP) terintegrasi dengan RESTful API (direncanakan, belum diimplementasi pada fase ini)
+* **Database Pusat:** MySQL (direncanakan)
+* **Penyimpanan Lokal (Mobile):** SQLite / Shared Preferences (direncanakan)
+* **Environment:** Android Studio & Android SDK, VS Code, Flutter SDK
 
 ## 3. Code Rules
 * Do not add comments unless truly necessary.
-* Use PascalCase for all classes, types, interfaces, enums, React components, database models, API DTOs, and JSON property names.
+* Use PascalCase for all classes, enums, and widget components.
 * Local variables may use camelCase.
 * Keep code lines below 150 characters where practical.
 * Use a clean and simple folder structure.
-* Do not add authentication in this first version. Assume role selection is done manually on the frontend.
+* Pisahkan tanggung jawab antara **widget (UI)**, **notifier/use case (state management)**, dan **repository (data source)**.
 
 ## 4. Main Entities
 
@@ -58,87 +57,109 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
 * Never hard-delete existing order data.
 * Never replace existing transaction records.
 * When an `Order` is created, automatically decrement the `Quota` in `SurplusFood`.
-* Use Prisma migrations and seed one example Merchant, three Buyers, and five SurplusFoods.
 
-## 6. Backend Features
+## 6. Mobile Features
 
-1. **CRUD Merchant & Buyer**
-   * Create, list, detail, update profiles.
-2. **CRUD Surplus Food**
-   * Add, edit, delete (soft delete using `IsActive`) surplus food for a merchant.
-3. **Order Management & Validation**
-   * Endpoint to create an order and generate a unique `PickupCode`.
-   * Endpoint for merchant to validate `PickupCode` and change status to `COMPLETED`.
-4. **Dashboard API**
-   * Return merchant summary: Total Active Foods, Total Orders, Quota Remaining.
-   * Return buyer progress: Total Orders, Active Orders.
-   * Order Status rules:
-     * `PENDING`: Order created, waiting for pickup.
-     * `COMPLETED`: Food picked up and code validated.
-     * `CANCELLED`: Order cancelled by buyer or merchant.
+1. **Authentication (Login)**
+   * Halaman login dengan role Mitra / Pembeli (sementara disimulasikan).
+2. **Katalog Surplus (Buyer Feed)**
+   * Menampilkan daftar `SurplusFood` yang aktif dan masih memiliki kuota.
+   * Pencarian makanan berdasarkan nama atau nama toko.
+3. **Booking / Pemesanan**
+   * Form pemesanan dengan validasi input (nama, jumlah pesanan).
+   * Menghasilkan kode *pick-up* unik (contoh: `RESCUE-101`).
+   * Tombol pesan *disabled* saat proses submit untuk mencegah double-tap.
+4. **Validasi Pesanan (Mitra)**
+   * Fitur bagi mitra untuk memvalidasi kode unik saat pelanggan mengambil makanan (direncanakan).
+5. **Order Status rules:**
+   * `PENDING`: Order created, waiting for pickup.
+   * `COMPLETED`: Food picked up and code validated.
+   * `CANCELLED`: Order cancelled by buyer or merchant.
 
-## 7. Frontend Pages
+## 7. Mobile Screens
 
-1. **Merchant Dashboard**
-   * Summary cards: total active foods, total pending orders.
-   * Table showing each food item, remaining quota, and status.
-   * Input form to validate `PickupCode`.
-2. **Buyer Catalog (Feed)**
-   * List available `SurplusFood` where `IsActive` is true and `Quota > 0`.
-   * Form to create an order.
-3. **Order History**
-   * Table showing commit message/order details, pickup code, date, and status badge.
+1. **Login Screen**
+   * Input email & password, tombol menuju dashboard.
+2. **Dashboard Screen (Katalog Surplus / Buyer Feed)**
+   * Daftar makanan surplus dalam bentuk card.
+   * Setiap card memiliki informasi: toko, menu, harga asli (coret), harga diskon, sisa kuota, dan tombol "Pesan".
+3. **Booking Screen (Pemesanan)**
+   * Rincian makanan yang dipilih.
+   * Form detail pemesanan (nama, jumlah, catatan) dengan validasi.
+4. **Profile Screen**
+   * Halaman profil pembeli / mitra (placeholder).
 
 ## 8. UI Requirements
 * Use Indonesian language for all labels, buttons, messages, and validation.
-* Create a clean, responsive dashboard.
-* Use simple tables, cards, badges, forms, confirmation dialog before delete, and empty states.
+* Clean and simple UI with cards, forms, empty states, and error states with retry.
 * Use status badge colors:
   * COMPLETED: green
   * PENDING: orange
   * CANCELLED: red
-* Do not add charts in the first version.
 
-## 9. Required API Routes
-* `GET /api/merchants`
-* `POST /api/merchants`
-* `GET /api/buyers`
-* `POST /api/buyers`
-* `GET /api/merchants/:Id/foods`
-* `POST /api/merchants/:Id/foods`
-* `PUT /api/foods/:Id`
-* `DELETE /api/foods/:Id`
-* `GET /api/buyers/:Id/orders`
-* `POST /api/orders`
-* `POST /api/orders/validate`
-* `GET /api/merchants/:Id/dashboard`
+## 9. Project Structure
 
-## 10. Deliverables
-* Complete frontend and backend source code.
-* Prisma schema, migration, and seed data.
-* Docker Compose file for MySQL.
-* `.env.example`.
-* README with installation, database migration, seed, frontend/backend startup, Docker usage.
+```
+food_rescue_app/
+├── lib/
+│   ├── main.dart                      # Entry point + ProviderScope + routing
+│   ├── routes/
+│   │   └── app_routes.dart            # Definisi named routes
+│   ├── screens/                       # Lapisan UI (widget)
+│   │   ├── login_screen.dart
+│   │   ├── dashboard_screen.dart      # Fitur 1: Katalog Surplus
+│   │   ├── booking_screen.dart        # Fitur 2: Booking / Pemesanan
+│   │   └── profile_screen.dart
+│   ├── widgets/                       # Reusable component
+│   │   ├── primary_button.dart
+│   │   ├── app_text_field.dart
+│   │   ├── food_card.dart
+│   │   ├── empty_state_view.dart
+│   │   └── error_state_view.dart
+│   ├── models/                        # Model data
+│   │   ├── user_model.dart
+│   │   ├── surplus_food_model.dart
+│   │   └── order_model.dart
+│   ├── providers/                     # State management (Riverpod notifier)
+│   │   ├── catalog_provider.dart
+│   │   └── booking_provider.dart
+│   └── repositories/                  # Sumber data (abstrak + fake impl)
+│       ├── surplus_food_repository.dart
+│       └── order_repository.dart
+└── test/                              # Widget test untuk tiap state utama
+    ├── widget_test.dart
+    ├── catalog_screen_test.dart
+    └── booking_screen_test.dart
+```
 
-## 11. Project Structure
-Use a TypeScript monorepo with npm workspaces.
+## 10. State Management Architecture (Riverpod)
 
-- `food-rescue-app/`
-  - `apps/`
-    - `web/`
-    - `api/`
-  - `packages/`
-    - `shared/`
+Aplikasi memakai **Riverpod** secara konsisten dengan pemisahan tanggung jawab:
 
-## 12. Shared Package Requirements
-* Create `packages/shared` as `@food-rescue-app/shared`.
-* Store all shared domain models, enums, API response types, and shared constants here.
-* Both `apps/web` and `apps/api` must import shared types from this package.
-* Do not duplicate domain model definitions between frontend and backend.
+```
+UI (Screen)  ──watch──▶  Provider/Notifier  ──read──▶  Repository  ──▶  Data source
+     ▲                         │                              │
+     └───── rebuild ◀──────────┘                              │
+                  AsyncValue<List<SurplusFood>> ◀────────────┘
+```
 
-## 13. Model Rules
-* Define shared TypeScript interfaces or types only once in `packages/shared`.
-* Example: `Merchant`, `Buyer`, `SurplusFood`, and `OrderStatus` must be imported by both frontend and backend from `@food-rescue-app/shared`.
-* Prisma models remain in the backend because they are database-specific.
-* The backend maps Prisma entities to shared API models before returning responses.
-* The frontend must not import Prisma types.
+* **Widget (UI):** hanya membaca state via `ref.watch()` dan mengirim aksi via `ref.read()`. Tidak ada logika bisnis di layar.
+* **Notifier / Use Case:** memegang state dan logika (misal: `retry()`, `submit()`). Memakai `AsyncNotifier` sehingga state `loading` / `data` / `error` tertangani seragam dalam `AsyncValue`.
+* **Repository:** satu-satunya tempat yang tahu dari mana data berasal (saat ini *fake* / di-mock, nanti diganti REST API ke backend Laravel). Dibungkus dalam `Provider` supaya bisa di-inject dan di-override saat *testing*.
+
+### Pemetaan 6 Kondisi UI (P4)
+
+| # | Kondisi | Lokasi implementasi |
+|---|---------|---------------------|
+| 1 | Initial loading | `CatalogNotifier.build()` → `AsyncLoading` → indikator putar di `DashboardScreen` |
+| 2 | Data berhasil dimuat | `AsyncData<List<SurplusFood>>` → `FoodCard` di `DashboardScreen` |
+| 3 | Empty state | `EmptyStateView` di `DashboardScreen` (kuota habis / pencarian tanpa hasil) |
+| 4 | Error state + retry | `ErrorStateView` di `DashboardScreen` + `CatalogNotifier.retry()` |
+| 5 | Validasi input pada form | `GlobalKey<FormState>` + validator di `BookingScreen` (nama & jumlah) |
+| 6 | Loading saat submit (anti double-tap) | `PrimaryButton(isLoading: true)` → `onPressed: null` saat `BookingNotifier.submit()` |
+
+## 11. Deliverables
+* Source code Flutter yang bisa dijalankan (`flutter run`).
+* Widget test untuk setiap state utama (`flutter test`).
+* Dokumentasi P4 beserta screenshot/video singkat.
+* README dengan instruksi instalasi dan menjalankan aplikasi.
