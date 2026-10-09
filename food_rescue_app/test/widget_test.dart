@@ -13,19 +13,16 @@ void main() {
     await tester.pumpWidget(const FoodRescueApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Food Rescue Login'), findsOneWidget);
-    expect(find.text('Masuk'), findsOneWidget);
+    expect(find.text('Food Rescue'), findsOneWidget);
+    expect(find.text('Masuk'), findsWidgets);
   });
 
-  testWidgets('Tombol primary menampilkan teks yang diberikan', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(child: Text('Masuk')),
-        ),
-      ),
-    );
+  testWidgets('Form login memiliki field email dan password', (WidgetTester tester) async {
+    await tester.pumpWidget(const FoodRescueApp());
+    await tester.pumpAndSettle();
 
-    expect(find.text('Masuk'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNWidgets(2));
+    expect(find.byIcon(Icons.mail_outline_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
   });
 }

@@ -19,6 +19,12 @@ Pemisahan tanggung jawab mengikuti aturan: **widget**, **notifier/use case**, da
 
 ```
 lib/
+├── core/                         ← DESIGN SYSTEM (tema, warna, tipografi)
+│   └── theme/
+│       ├── app_colors.dart
+│       ├── app_spacing.dart
+│       ├── app_text_styles.dart
+│       └── app_theme.dart
 ├── providers/                     ← STATE MANAGEMENT (notifier / use case)
 │   ├── catalog_provider.dart      ← Fitur 1: Katalog Surplus
 │   └── booking_provider.dart      ← Fitur 2: Booking / Pemesanan
@@ -26,15 +32,25 @@ lib/
 │   ├── surplus_food_repository.dart
 │   └── order_repository.dart
 ├── screens/                       ← WIDGET (UI, baca state saja)
+│   ├── login_screen.dart
 │   ├── dashboard_screen.dart
-│   └── booking_screen.dart
-└── widgets/                       ← REUSABLE COMPONENT
-    ├── food_card.dart
-    ├── empty_state_view.dart
-    ├── error_state_view.dart
-    ├── primary_button.dart
-    └── app_text_field.dart
+│   ├── booking_screen.dart
+│   └── profile_screen.dart
+├── widgets/                       ← REUSABLE COMPONENT
+│   ├── food_card.dart
+│   ├── food_card_skeleton.dart
+│   ├── empty_state_view.dart
+│   ├── error_state_view.dart
+│   ├── primary_button.dart
+│   └── app_text_field.dart
+└── models/                        ← MODEL DATA
+    ├── surplus_food_model.dart
+    └── order_model.dart
 ```
+
+Desain UI mengikuti Material 3 dengan font "Plus Jakarta Sans", palet warna
+terpusat di `core/theme/`, dan layout adaptif (grid 1 kolom di mobile,
+2+ kolom di desktop).
 
 ### a. Notifier (Use Case) — `lib/providers/catalog_provider.dart`
 
@@ -102,9 +118,9 @@ Kontraknya berupa `abstract class`, sehingga saat backend Laravel siap, cukup di
 
 | # | Kondisi UI yang wajib | Cara memicu di aplikasi | Lokasi code |
 |---|------------------------|--------------------------|-------------|
-| 1 | **Initial loading** | Buka aplikasi → login → dashboard. Indikator putar muncul ~1.2 detik. | `CatalogNotifier.build()` → `AsyncLoading` |
-| 2 | **Data berhasil dimuat** | Setelah loading selesai, daftar 5 makanan tampil. | `AsyncData` → `FoodCard` di `dashboard_screen.dart` |
-| 3 | **Empty state** | Ketik kata kunci yang tidak ada (misal "sate") di kotak pencarian. | `EmptyStateView` di `dashboard_screen.dart` |
+| 1 | **Initial loading** | Buka aplikasi → login → dashboard. Skeleton shimmer muncul ~1.2 detik (bukan spinner biasa). | `CatalogNotifier.build()` → `AsyncLoading` |
+| 2 | **Data berhasil dimuat** | Setelah loading selesai, grid 6 makanan tampil (grid adaptif: 1 kolom di mobile, 2+ di desktop). | `AsyncData` → `FoodCard` di `dashboard_screen.dart` |
+| 3 | **Empty state** | Ketik kata kunci yang tidak ada (misal "sate") di kotak pencarian, atau pilih kategori yang kosong. | `EmptyStateView` di `dashboard_screen.dart` |
 | 4 | **Error state + tombol retry** | Karena `simulateFailureOnFirstCall = true`, pemanggilan pertama selalu gagal → layar error dengan tombol **Coba Lagi**. Klik retry → data muncul. | `ErrorStateView` + `CatalogNotifier.retry()` |
 | 5 | **Validasi input pada form** | Di Booking, kosongkan nama / isi jumlah melebihi kuota → pesan error muncul di field. | `_validateName` & `_validateQuantity` di `booking_screen.dart` |
 | 6 | **Loading saat submit (anti double-tap)** | Tekan "Pesan Sekarang" → tombol berubah jadi spinner & *disabled* (`onPressed: null`) selama ~1.5 detik. | `PrimaryButton(isLoading: ...)` + `BookingNotifier.submit()` |
@@ -120,7 +136,7 @@ Kontraknya berupa `abstract class`, sehingga saat backend Laravel siap, cukup di
    ↓ state = AsyncLoading  →  tombol disabled (double-tap dicegah)
    ↓ repository.createOrder() (~1.5 detik)
    ↓ state = AsyncData(Order)
-   ↓ ref.listen menangkap → dialog "Pesanan Berhasil" + kode RESCUE-101
+   ↓ ref.listen menangkap → bottom sheet "Pesanan Berhasil! 🎉" + kode RESCUE-101
    ↓ tap "Kembali ke Katalog" → reset state
 ```
 

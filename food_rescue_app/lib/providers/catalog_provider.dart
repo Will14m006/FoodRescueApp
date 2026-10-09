@@ -11,6 +11,9 @@ final surplusFoodRepositoryProvider = Provider<SurplusFoodRepository>((ref) {
 /// Query pencarian katalog (dipakai untuk mendemokan "empty state").
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
+/// Kategori yang sedang dipilih di chip filter.
+final selectedCategoryProvider = StateProvider<FoodCategory>((ref) => FoodCategory.all);
+
 /// Notifier untuk Fitur 1: Katalog Surplus (Buyer Feed).
 ///
 /// Memakai AsyncNotifier sehingga state loading / data / error terurus seragam.

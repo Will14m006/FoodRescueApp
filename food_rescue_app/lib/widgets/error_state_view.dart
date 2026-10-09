@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
+
 /// Error state reusable dengan tombol Retry.
 ///
 /// Pesan error dari Exception masih mentah (contoh "Exception: ...") sehingga
@@ -16,30 +20,42 @@ class ErrorStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(AppSpacing.xxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 80, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            const Text(
-              'Terjadi Kesalahan',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(
+                color: AppColors.errorLight,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Text('📡', style: TextStyle(fontSize: 42)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xl),
+            Text('Yah, ada yang salah', style: AppTextStyles.headline),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               _cleanMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              style: AppTextStyles.body,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.xl),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.textOnPrimary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 22),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
               ),
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: const Text('Coba Lagi', style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: Text('Coba Lagi', style: AppTextStyles.button),
             ),
           ],
         ),

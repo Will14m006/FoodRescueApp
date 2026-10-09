@@ -38,6 +38,9 @@ dependencies:
   # State management untuk P4 (konsisten di seluruh fitur).
   flutter_riverpod: ^2.6.1
 
+  # Font modern (Poppins) untuk seluruh aplikasi.
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

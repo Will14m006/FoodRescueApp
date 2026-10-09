@@ -91,7 +91,11 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
 
 ## 8. UI Requirements
 * Use Indonesian language for all labels, buttons, messages, and validation.
+* Material 3 design dengan font "Plus Jakarta Sans" (modern, mobile-first).
+* Palet warna terpusat di `lib/core/theme/app_colors.dart` (hijau utama, oranye aksen).
+* Layout adaptif: grid 1 kolom di mobile, 2+ kolom di layar lebar (desktop/tablet).
 * Clean and simple UI with cards, forms, empty states, and error states with retry.
+* Skeleton shimmer saat loading (bukan spinner biasa) untuk kesan aplikasi cepat.
 * Use status badge colors:
   * COMPLETED: green
   * PENDING: orange
@@ -103,8 +107,14 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
 food_rescue_app/
 ├── lib/
 │   ├── main.dart                      # Entry point + ProviderScope + routing
-│   ├── routes/
-│   │   └── app_routes.dart            # Definisi named routes
+│   ├── core/                          # Design system (tema, warna, tipografi)
+│   │   └── theme/
+│   │       ├── app_colors.dart
+│   │       ├── app_spacing.dart
+│   │       ├── app_text_styles.dart
+│   │       └── app_theme.dart
+│   ├── routes/                        # Definisi named routes
+│   │   └── app_routes.dart
 │   ├── screens/                       # Lapisan UI (widget)
 │   │   ├── login_screen.dart
 │   │   ├── dashboard_screen.dart      # Fitur 1: Katalog Surplus
@@ -114,10 +124,10 @@ food_rescue_app/
 │   │   ├── primary_button.dart
 │   │   ├── app_text_field.dart
 │   │   ├── food_card.dart
+│   │   ├── food_card_skeleton.dart
 │   │   ├── empty_state_view.dart
 │   │   └── error_state_view.dart
 │   ├── models/                        # Model data
-│   │   ├── user_model.dart
 │   │   ├── surplus_food_model.dart
 │   │   └── order_model.dart
 │   ├── providers/                     # State management (Riverpod notifier)

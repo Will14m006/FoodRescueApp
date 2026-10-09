@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/app_theme.dart';
 import 'models/surplus_food_model.dart';
 import 'routes/app_routes.dart';
 import 'screens/booking_screen.dart';
@@ -20,7 +21,7 @@ class FoodRescueApp extends StatelessWidget {
     return MaterialApp(
       title: 'Food Rescue',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.green),
+      theme: AppTheme.light,
       initialRoute: AppRoutes.login,
       routes: {
         AppRoutes.login: (context) => const LoginScreen(),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 import '../models/order_model.dart';
 import '../models/surplus_food_model.dart';
 import '../providers/booking_provider.dart';
-import '../routes/app_routes.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -81,62 +83,120 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         );
   }
 
-  void _showSuccessDialog(Order order) {
-    showDialog(
+  void _showSuccessSheet(Order order) {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green),
-              SizedBox(width: 8),
-              Text('Pesanan Berhasil'),
-            ],
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Tunjukkan kode pick-up ini ke kasir:'),
-              const SizedBox(height: 12),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xxl,
+              AppSpacing.xxl,
+              AppSpacing.xxl,
+              AppSpacing.xxxl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              // Handle bar
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                width: 44,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green, width: 1.5),
-                ),
-                child: Text(
-                  order.pickupCode,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                    letterSpacing: 2,
-                  ),
+                  color: AppColors.outline,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text('${order.surplusFoodName} x ${order.quantity}'),
-              Text('Total: Rp ${order.totalPrice}'),
-              Text('Atas nama: ${order.buyerName}'),
+              const SizedBox(height: AppSpacing.xxl),
+              Container(
+                width: 76,
+                height: 76,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.primary,
+                  size: 44,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text('Pesanan Berhasil! 🎉', style: AppTextStyles.headline),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Tunjukkan kode pick-up ini ke kasir saat mengambil makanan.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body,
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              // Kode pick-up
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.xl,
+                  horizontal: AppSpacing.xxl,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text('KODE PICK-UP', style: AppTextStyles.caption),
+                    const SizedBox(height: AppSpacing.xs + 2),
+                    Text(
+                      order.pickupCode,
+                      style: AppTextStyles.display.copyWith(
+                        fontSize: 30,
+                        color: AppColors.primaryDark,
+                        letterSpacing: 3,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              // Rincian
+              _DetailRow(label: 'Makanan', value: order.surplusFoodName),
+              _DetailRow(label: 'Jumlah', value: '${order.quantity} porsi'),
+              _DetailRow(
+                label: 'Total',
+                value: 'Rp ${order.totalPrice}',
+                valueColor: AppColors.primary,
+                isBold: true,
+              ),
+              _DetailRow(label: 'Atas nama', value: order.buyerName),
+              const SizedBox(height: AppSpacing.xxl),
+              PrimaryButton(
+                text: 'Kembali ke Katalog',
+                icon: Icons.arrow_back_rounded,
+                onPressed: () {
+                  ref.read(bookingProvider.notifier).reset();
+                  Navigator.pop(sheetContext);
+                  Navigator.pop(context);
+                },
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Reset state & kembali ke katalog.
-                ref.read(bookingProvider.notifier).reset();
-                Navigator.pop(dialogContext);
-                Navigator.popUntil(context, (route) => route.settings.name == AppRoutes.dashboard);
-              },
-              child: const Text('Kembali ke Katalog'),
-            ),
-          ],
+          ),
         );
       },
     );
@@ -146,146 +206,252 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   Widget build(BuildContext context) {
     final orderAsync = ref.watch(bookingProvider);
 
-    // Dengarkan perubahan state: kalau ada Order baru (sukses), tampilkan dialog.
+    // Dengarkan perubahan state: kalau ada Order baru (sukses), tampilkan bottom sheet.
     ref.listen<AsyncValue<Order?>>(bookingProvider, (previous, next) {
       next.whenData((order) {
         if (order != null && !orderAsync.isLoading) {
-          _showSuccessDialog(order);
+          _showSuccessSheet(order);
         }
       });
     });
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Pesan Makanan', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.green,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.green[100],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.fastfood, color: Colors.green, size: 32),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                food.merchantName,
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                              ),
-                              Text(
-                                food.name,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    food.formattedOriginalPrice,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.red,
-                                      decoration: TextDecoration.lineThrough,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    food.formattedDiscountPrice,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Kuota tersisa: ${food.quota} porsi',
-                                style: const TextStyle(fontSize: 12, color: Colors.orange),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Detail Pemesanan',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Nama Pemesan',
-                  controller: _nameController,
-                  validator: _validateName,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Jumlah Porsi (maks. ${food.quota})',
-                  controller: _qtyController,
-                  validator: _validateQuantity,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Catatan (opsional)',
-                  controller: _noteController,
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  text: 'Pesan Sekarang',
-                  isLoading: orderAsync.isLoading,
-                  onPressed: _submit,
-                ),
-                const SizedBox(height: 12),
-                if (orderAsync.isLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Sedang memproses pesanan...',
-                        style: TextStyle(color: Colors.grey),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // === App bar kustom ===
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md + 2,
+                AppSpacing.md + 2,
+                AppSpacing.md + 2,
+                AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm + 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.outline),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 20,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
-                if (orderAsync.hasError)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Gagal membuat pesanan: ${orderAsync.error}'.replaceFirst('Exception: ', ''),
-                      style: const TextStyle(color: Colors.red),
-                    ),
+                  const SizedBox(width: AppSpacing.md),
+                  Text('Pesan Makanan', style: AppTextStyles.title),
+                ],
+              ),
+            ),
+
+            // === Form ===
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.md + 2,
+                  AppSpacing.xl,
+                  AppSpacing.xxl + 40,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Kartu makanan
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
+                          border: Border.all(color: AppColors.outline),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 88,
+                              height: 88,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryLight,
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(AppRadius.xl),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(food.emoji, style: const TextStyle(fontSize: 40)),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppSpacing.md + 2),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(food.merchantName, style: AppTextStyles.caption),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      food.name,
+                                      style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          food.formattedOriginalPrice,
+                                          style: AppTextStyles.caption.copyWith(
+                                            decoration: TextDecoration.lineThrough,
+                                            decorationColor: AppColors.textHint,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Text(
+                                          food.formattedDiscountPrice,
+                                          style: AppTextStyles.bodyStrong.copyWith(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+
+                      // Info kuota & ambil
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.md + 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.warningLight,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.timer_outlined, size: 20, color: AppColors.warning),
+                            const SizedBox(width: AppSpacing.sm + 2),
+                            Expanded(
+                              child: Text(
+                                'Ambil pukul ${food.pickupWindow}. Sisa ${food.quota} porsi saja!',
+                                style: AppTextStyles.body.copyWith(
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+
+                      Text('Detail Pemesanan', style: AppTextStyles.headline.copyWith(fontSize: 18)),
+                      const SizedBox(height: AppSpacing.xl),
+                      AppTextField(
+                        label: 'Nama Pemesan',
+                        hint: 'Masukkan nama kamu',
+                        controller: _nameController,
+                        validator: _validateName,
+                        prefixIcon: Icons.person_outline_rounded,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      AppTextField(
+                        label: 'Jumlah Porsi (maks. ${food.quota})',
+                        hint: '1',
+                        controller: _qtyController,
+                        validator: _validateQuantity,
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.shopping_bag_outlined,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      AppTextField(
+                        label: 'Catatan (opsional)',
+                        hint: 'Contoh: tanpa sambal',
+                        controller: _noteController,
+                        maxLines: 2,
+                        prefixIcon: Icons.note_alt_outlined,
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+
+                      PrimaryButton(
+                        text: 'Pesan Sekarang',
+                        icon: Icons.shopping_cart_rounded,
+                        isLoading: orderAsync.isLoading,
+                        onPressed: _submit,
+                      ),
+                      if (orderAsync.isLoading) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        Center(
+                          child: Text(
+                            'Sedang memproses pesanan...',
+                            style: AppTextStyles.caption,
+                          ),
+                        ),
+                      ],
+                      if (orderAsync.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: Text(
+                            'Gagal membuat pesanan: ${orderAsync.error}'
+                                .replaceFirst('Exception: ', ''),
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool isBold;
+
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs + 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: AppTextStyles.body),
+          Text(
+            value,
+            style: AppTextStyles.bodyStrong.copyWith(
+              color: valueColor ?? AppColors.textPrimary,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
