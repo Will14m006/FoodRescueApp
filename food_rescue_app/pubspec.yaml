@@ -41,6 +41,13 @@ dependencies:
   # Font modern (Poppins) untuk seluruh aplikasi.
   google_fonts: ^6.2.1
 
+  # Local data & persistence (P5). Di web otomatis memakai localStorage,
+  # di Android/iOS memakai SharedPreferences.
+  shared_preferences: ^2.3.2
+
+  # Dipakai di test untuk mock storage (InMemorySharedPreferencesAsync).
+  shared_preferences_platform_interface: ^2.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

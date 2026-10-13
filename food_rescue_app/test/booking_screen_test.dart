@@ -7,6 +7,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:food_rescue_app/models/surplus_food_model.dart';
 import 'package:food_rescue_app/providers/booking_provider.dart';
@@ -48,6 +50,12 @@ Future<void> _scrollToButton(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() {
+    // Booking sukses kini juga menyimpan ke local storage, jadi platform
+    // instance SharedPreferencesAsync perlu disiapkan.
+    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+  });
+
   testWidgets('validasi: pesan kosong menampilkan error pada field',
       (WidgetTester tester) async {
     await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));

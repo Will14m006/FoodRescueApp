@@ -7,6 +7,7 @@ import '../core/theme/app_text_styles.dart';
 import '../models/order_model.dart';
 import '../models/surplus_food_model.dart';
 import '../providers/booking_provider.dart';
+import '../providers/orders_provider.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -209,7 +210,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     // Dengarkan perubahan state: kalau ada Order baru (sukses), tampilkan bottom sheet.
     ref.listen<AsyncValue<Order?>>(bookingProvider, (previous, next) {
       next.whenData((order) {
-        if (order != null && !orderAsync.isLoading) {
+        if (order != null) {
+          // Simpan pesanan ke local storage (P5: Create).
+          ref.read(ordersProvider.notifier).addOrder(order);
           _showSuccessSheet(order);
         }
       });

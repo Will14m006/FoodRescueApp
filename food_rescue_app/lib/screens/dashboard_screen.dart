@@ -140,6 +140,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               const Spacer(),
               GestureDetector(
+                onTap: () => Navigator.pushNamed(context, AppRoutes.orderStatus),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.textOnPrimary.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: AppColors.textOnPrimary,
+                    size: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, AppRoutes.orders),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.textOnPrimary.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.history_rounded,
+                    color: AppColors.textOnPrimary,
+                    size: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              GestureDetector(
                 onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
                 child: Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),

@@ -50,3 +50,4 @@ flutter test
 | P2 | Architecture.md | ✅ Selesai |
 | P3 | Struktur folder, routing, prototype UI | ✅ Selesai |
 | P4 | 2 fitur dengan state management (Riverpod) | ✅ Selesai |
+| P5 | Local Data & Persistence (SharedPreferences) | ✅ Selesai |

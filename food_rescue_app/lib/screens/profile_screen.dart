@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../routes/app_routes.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -107,10 +108,18 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _MenuTile(
+                      icon: Icons.delivery_dining_rounded,
+                      title: 'Status Pesanan',
+                      subtitle: 'Pantau & kelola pesanan aktif',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.orderStatus),
+                    ),
+                    _MenuTile(
                       icon: Icons.receipt_long_rounded,
                       title: 'Riwayat Pesanan',
-                      subtitle: 'Lihat semua pesanan kamu',
-                      onTap: () {},
+                      subtitle: 'Lihat semua pesanan kamu (read-only)',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.orders),
                     ),
                     _MenuTile(
                       icon:Icons.location_on_rounded,

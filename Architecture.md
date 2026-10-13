@@ -69,9 +69,14 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
    * Form pemesanan dengan validasi input (nama, jumlah pesanan).
    * Menghasilkan kode *pick-up* unik (contoh: `RESCUE-101`).
    * Tombol pesan *disabled* saat proses submit untuk mencegah double-tap.
-4. **Validasi Pesanan (Mitra)**
+4. **Orders Screen (Status & Riwayat Pesanan)**
+   * Status Pesanan: lihat status + aksi "Sudah Pickup" / "Batalkan" / "Hapus".
+   * Riwayat Pesanan: read-only, data diambil dari local storage.
+   * Semua data disimpan lokal di perangkat (SharedPreferences / localStorage)
+     dan tetap tersedia setelah aplikasi ditutup & dibuka lagi.
+5. **Validasi Pesanan (Mitra)**
    * Fitur bagi mitra untuk memvalidasi kode unik saat pelanggan mengambil makanan (direncanakan).
-5. **Order Status rules:**
+6. **Order Status rules:**
    * `PENDING`: Order created, waiting for pickup.
    * `COMPLETED`: Food picked up and code validated.
    * `CANCELLED`: Order cancelled by buyer or merchant.
@@ -86,7 +91,11 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
 3. **Booking Screen (Pemesanan)**
    * Rincian makanan yang dipilih.
    * Form detail pemesanan (nama, jumlah, catatan) dengan validasi.
-4. **Profile Screen**
+4. **Orders Screen (Riwayat Pesanan)**
+   * Daftar pesanan yang disimpan di local storage, **read-only**.
+5. **Order Status Screen (Status Pesanan)**
+   * Daftar pesanan + aksi Update (Sudah Pickup / Batalkan) & Delete (Hapus).
+6. **Profile Screen**
    * Halaman profil pembeli / mitra (placeholder).
 
 ## 8. UI Requirements
@@ -119,6 +128,8 @@ food_rescue_app/
 │   │   ├── login_screen.dart
 │   │   ├── dashboard_screen.dart      # Fitur 1: Katalog Surplus
 │   │   ├── booking_screen.dart        # Fitur 2: Booking / Pemesanan
+│   │   ├── order_status_screen.dart   # P5: Status Pesanan (aksi Update/Delete)
+│   │   ├── orders_screen.dart         # P5: Riwayat Pesanan (read-only)
 │   │   └── profile_screen.dart
 │   ├── widgets/                       # Reusable component
 │   │   ├── primary_button.dart
@@ -132,14 +143,18 @@ food_rescue_app/
 │   │   └── order_model.dart
 │   ├── providers/                     # State management (Riverpod notifier)
 │   │   ├── catalog_provider.dart
-│   │   └── booking_provider.dart
+│   │   ├── booking_provider.dart
+│   │   └── orders_provider.dart       # P5: CRUD riwayat pesanan
 │   └── repositories/                  # Sumber data (abstrak + fake impl)
 │       ├── surplus_food_repository.dart
-│       └── order_repository.dart
+│       ├── order_repository.dart
+│       └── order_local_repository.dart # P5: localStorage/SharedPreferences
 └── test/                              # Widget test untuk tiap state utama
     ├── widget_test.dart
     ├── catalog_screen_test.dart
-    └── booking_screen_test.dart
+    ├── booking_screen_test.dart
+    ├── booking_to_orders_test.dart     # P5: integration test alur lengkap
+    └── orders_persistence_test.dart   # P5: persistence test
 ```
 
 ## 10. State Management Architecture (Riverpod)
