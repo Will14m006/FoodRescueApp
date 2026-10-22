@@ -11,7 +11,9 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:food_rescue_app/main.dart';
+import 'package:food_rescue_app/providers/booking_provider.dart';
 import 'package:food_rescue_app/providers/catalog_provider.dart';
+import 'package:food_rescue_app/repositories/order_repository.dart';
 import 'package:food_rescue_app/repositories/surplus_food_repository.dart';
 
 void main() {
@@ -106,6 +108,10 @@ Future<void> _pumpApp(WidgetTester tester) async {
             simulateFailureOnFirstCall: true,
             delay: const Duration(milliseconds: 10),
           ),
+        ),
+        // P6: jangan tembak API asli saat test.
+        orderRepositoryProvider.overrideWithValue(
+          FakeOrderRepository(delay: const Duration(milliseconds: 10)),
         ),
       ],
       child: const MaterialApp(

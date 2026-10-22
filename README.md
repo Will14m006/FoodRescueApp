@@ -51,3 +51,4 @@ flutter test
 | P3 | Struktur folder, routing, prototype UI | ✅ Selesai |
 | P4 | 2 fitur dengan state management (Riverpod) | ✅ Selesai |
 | P5 | Local Data & Persistence (SharedPreferences) | ✅ Selesai |
+| P6 | Integrasi API & Vertical Slice (http + 15 unit test) | ✅ Selesai |

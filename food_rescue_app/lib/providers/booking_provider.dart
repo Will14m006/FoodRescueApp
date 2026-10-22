@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/order_model.dart';
 import '../repositories/order_repository.dart';
 
-/// Repository dibungkus provider supaya bisa di-inject & di-override saat test.
+/// P6: Pesanan sekarang disimpan ke backend sungguhan.
+/// Override provider ini di widget test dengan [FakeOrderRepository].
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  return FakeOrderRepository();
+  return ApiOrderRepository();
 });
 
 /// Notifier untuk Fitur 2: Booking / Pemesanan makanan surplus.

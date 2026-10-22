@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/surplus_food_model.dart';
 import '../repositories/surplus_food_repository.dart';
 
-/// Repository dibungkus provider supaya bisa di-inject & di-override saat test.
+/// P6: Katalog sekarang mengambil data dari API sungguhan.
+/// Override provider ini di widget test dengan [FakeSurplusFoodRepository].
 final surplusFoodRepositoryProvider = Provider<SurplusFoodRepository>((ref) {
-  return FakeSurplusFoodRepository();
+  return ApiSurplusFoodRepository();
 });
 
 /// Query pencarian katalog (dipakai untuk mendemokan "empty state").

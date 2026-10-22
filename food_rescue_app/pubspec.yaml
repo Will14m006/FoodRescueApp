@@ -48,6 +48,9 @@ dependencies:
   # Dipakai di test untuk mock storage (InMemorySharedPreferencesAsync).
   shared_preferences_platform_interface: ^2.4.0
 
+  # P6: HTTP client untuk integrasi API (GET katalog, POST pesanan).
+  http: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

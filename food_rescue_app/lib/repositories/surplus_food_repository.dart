@@ -1,11 +1,83 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../models/surplus_food_model.dart';
 
+/// Kontrak sumber data katalog surplus.
 abstract class SurplusFoodRepository {
   Future<List<SurplusFood>> fetchSurplusFoods();
 }
 
+/// Error yang bisa ditampilkan rapi di UI (bukan stack trace mentah).
+class ApiException implements Exception {
+  const ApiException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// P6: Integrasi API sungguhan.
+///
+/// GET https://dummyjson.com/products/category/groceries
+/// - 200 + `products` berisi data -> `List<SurplusFood>`
+/// - 200 + `products` kosong       -> []
+/// - status non-200                -> [ApiException] (HTTP gagal)
+/// - body bukan JSON / JSON rusak  -> [ApiException]
+/// - item tidak sesuai model       -> [InvalidModelException]
+class ApiSurplusFoodRepository implements SurplusFoodRepository {
+  ApiSurplusFoodRepository({http.Client? client, this.timeout = const Duration(seconds: 12)})
+      : _client = client ?? http.Client();
+
+  final http.Client _client;
+  final Duration timeout;
+
+  static const endpoint =
+      'https://dummyjson.com/products/category/groceries?limit=100';
+
+  @override
+  Future<List<SurplusFood>> fetchSurplusFoods() async {
+    final http.Response response;
+    try {
+      response = await _client.get(Uri.parse(endpoint)).timeout(timeout);
+    } on Exception {
+      // Termasuk SocketException / timeout / offline.
+      throw const ApiException(
+        'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        'Server mengembalikan error ${response.statusCode}. Coba lagi sebentar.',
+      );
+    }
+
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw const ApiException('Respons server tidak dapat dibaca (JSON rusak).');
+    }
+
+    if (decoded is! Map<String, dynamic> || decoded['products'] is! List) {
+      throw const ApiException('Format respons server tidak sesuai.');
+    }
+
+    final products = decoded['products'] as List;
+
+    return products
+        .whereType<Map<String, dynamic>>()
+        .map(SurplusFood.fromJson)
+        .where((food) => food.isAvailable)
+        .toList();
+  }
+}
+
 /// Implementasi palsu (fake) yang mensimulasikan panggilan API ke backend.
 ///
+/// Dipakai oleh widget test supaya test tidak bergantung jaringan internet.
 /// Delay 1.2 detik sengaja dibuat agar state "loading" benar-benar terlihat.
 /// Flag [simulateFailureOnFirstCall] dibuat agar state "error + retry" bisa
 /// didemokan: pemanggilan pertama gagal, lalu sukses ketika tombol Retry
@@ -28,7 +100,7 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       id: 'sf-001',
       merchantName: 'Roti O Bakso',
       name: 'Paket Roti Sisa Hari Ini',
-      description: 'Isi 6 pcs roti	varian klasik, masih segar dari oven pagi.',
+      description: 'Isi 6 pcs roti varian klasik, masih segar dari oven pagi.',
       originalPrice: 40000,
       discountPrice: 15000,
       quota: 4,
@@ -116,7 +188,9 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
 
     if (simulateFailureOnFirstCall && !_hasFailedOnce) {
       _hasFailedOnce = true;
-      throw Exception('Gagal memuat katalog makanan. Periksa koneksi internet kamu.');
+      throw const ApiException(
+        'Gagal memuat katalog makanan. Periksa koneksi internet kamu.',
+      );
     }
 
     if (returnEmpty) return [];

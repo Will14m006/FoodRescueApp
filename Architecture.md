@@ -64,10 +64,13 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
    * Halaman login dengan role Mitra / Pembeli (sementara disimulasikan).
 2. **Katalog Surplus (Buyer Feed)**
    * Menampilkan daftar `SurplusFood` yang aktif dan masih memiliki kuota.
+   * **Data diambil dari API** (`GET /products/category/groceries`) melalui
+     repository + model, lengkap dengan state loading / empty / error / retry.
    * Pencarian makanan berdasarkan nama atau nama toko.
 3. **Booking / Pemesanan**
    * Form pemesanan dengan validasi input (nama, jumlah pesanan).
-   * Menghasilkan kode *pick-up* unik (contoh: `RESCUE-101`).
+   * **Pesanan dikirim ke backend** (`POST /carts/add`); kode *pick-up*
+     diturunkan dari ID yang dikembalikan server (contoh: `RESCUE-209`).
    * Tombol pesan *disabled* saat proses submit untuk mencegah double-tap.
 4. **Orders Screen (Status & Riwayat Pesanan)**
    * Status Pesanan: lihat status + aksi "Sudah Pickup" / "Batalkan" / "Hapus".
@@ -145,17 +148,28 @@ food_rescue_app/
 │   │   ├── catalog_provider.dart
 │   │   ├── booking_provider.dart
 │   │   └── orders_provider.dart       # P5: CRUD riwayat pesanan
-│   └── repositories/                  # Sumber data (abstrak + fake impl)
-│       ├── surplus_food_repository.dart
-│       ├── order_repository.dart
+│   └── repositories/                  # Sumber data (API + local storage)
+│       ├── surplus_food_repository.dart # P6: ApiSurplusFoodRepository (GET)
+│       ├── order_repository.dart       # P6: ApiOrderRepository (POST)
 │       └── order_local_repository.dart # P5: localStorage/SharedPreferences
-└── test/                              # Widget test untuk tiap state utama
+└── test/                              # Widget test + unit test
     ├── widget_test.dart
     ├── catalog_screen_test.dart
     ├── booking_screen_test.dart
     ├── booking_to_orders_test.dart     # P5: integration test alur lengkap
+    ├── api_integration_test.dart       # P6: 15 unit test API & model
     └── orders_persistence_test.dart   # P5: persistence test
 ```
+
+## API yang Dipakai
+
+| Method | Endpoint | Dipakai untuk |
+|---|---|---|
+| `GET` | `https://dummyjson.com/products/category/groceries?limit=100` | Memuat katalog surplus |
+| `POST` | `https://dummyjson.com/carts/add` | Menyimpan pesanan ke backend |
+
+Kedua endpoint mendukung CORS sehingga aman dipanggil dari Flutter web.
+Smoke test manual: `dart run tool/api_smoke.dart`.
 
 ## 10. State Management Architecture (Riverpod)
 
