@@ -101,6 +101,10 @@ Hasil: **15/15 passed**. Total seluruh project: **38 test passed**.
 
 ## 6. Bukti Koneksi ke API Sungguhan
 
+**Ya — aplikasi memakai API publik sungguhan (`dummyjson.com`), bukan file JSON
+lokal.** Tidak ada file `.json` dummy di dalam project; data diambil lewat HTTP
+saat aplikasi berjalan (`http.get` / `http.post`).
+
 Smoke test manual (bukan mock):
 
 ```bash
@@ -111,15 +115,50 @@ Output:
 
 ```
 GET katalog  -> 27 item
-  🍎 Apple | Rp 27.822 | sisa 8
-  🍖 Beef Steak | Rp 187.867 | sisa 86
-  🛒 Cat Food | Rp 130.060 | sisa 46
-POST pesanan -> ord-209 / RESCUE-209 / Rp 55644
+  🍎 Apple | Rp 27.822 | sisa 9
+  🍖 Beef Steak | Rp 187.867 | sisa 7
+  🛒 Cat Food | Rp 130.060 | sisa 7
+POST pesanan -> ord-209-653366 / RESCUE-209-653366 / Rp 55644
 ```
 
 Artinya: data katalog benar-benar datang dari server, dan pesanan benar-benar
-tercatat di backend (ID `209` berasal dari respons server, lalu dipakai sebagai
-kode pick-up).
+dikirim ke backend (status 201).
+
+### Catatan penting: `id` dari dummyjson selalu sama
+
+`POST /carts/add` **selalu** mengembalikan `id: 209` di setiap request (API
+dummy yang tidak benar-benar menyimpan data). Kalau `id` itu dipakai mentah,
+semua pesanan punya id yang sama → hanya pesanan pertama yang bisa diubah dan
+sisanya "tidak bisa diklik".
+
+Solusinya: `id` server tetap dipakai sebagai bukti request berhasil, lalu
+digabung dengan timestamp mikro-detik supaya tiap pesanan unik:
+
+```dart
+final uniqueSuffix = DateTime.now().microsecondsSinceEpoch % 1000000;
+final orderId = 'ord-$serverId-$uniqueSuffix';
+final code = 'RESCUE-$serverId-$uniqueSuffix';
+```
+
+Ada unit test khusus untuk ini: *"POST: dua pesanan berurutan menghasilkan id
+berbeda (tidak tabrakan)"*.
+
+## 6b. Kuota Makanan Dibuat Wajar
+
+Stok dari API bisa tidak masuk akal (mis. `97`), padahal ini makanan sisa yang
+harus habis hari itu. Karena itu kuota dibatasi per kategori di
+`surplus_food_model.dart`:
+
+| Kategori | Batas maksimum |
+|---|---|
+| Makanan Berat | 10 |
+| Snack & Pastry | 8 |
+| Roti & Bakery | 6 |
+| Minuman | 5 |
+
+Kuota tetap bervariasi (1..batas) supaya tidak semua item terlihat sama:
+`1 + (stok % batas)`. Ada unit test *"kuota: stok besar (97) dipotong ke batas
+logis per kategori"*.
 
 ## 7. Cara Demo ke Reviewer
 

@@ -47,11 +47,9 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     state = AsyncData(await _repository().loadOrders());
   }
 
-  // === DELETE ===
-  Future<void> deleteOrder(String orderId) async {
-    await _repository().deleteOrder(orderId);
-    state = AsyncData(await _repository().loadOrders());
-  }
+  // Catatan: tidak ada operasi DELETE untuk user. Pesanan bersifat permanen
+  // supaya riwayat tidak bisa dimanipulasi. Method deleteOrder tetap ada di
+  // repository hanya untuk keperluan test kebersihan storage.
 
   // === UTIL ===
   Future<void> refresh() async {

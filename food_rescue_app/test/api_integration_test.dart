@@ -60,10 +60,18 @@ void main() {
     expect(food.name, 'Apple');
     expect(food.category, FoodCategory.main);
     expect(food.originalPrice, (1.99 * 16000).round());
-    expect(food.quota, 8);
+    // Stok API (8) dipotong ke batas wajar kategori makanan berat (maks 10).
+    expect(food.quota, inInclusiveRange(1, SurplusFood.quotaCeiling(FoodCategory.main)));
     expect(food.isAvailable, isTrue);
     expect(food.rating, 4.19);
     expect(food.sold, 1); // jumlah review
+  });
+
+  test('kuota: stok besar (97) dipotong ke batas logis per kategori', () {
+    final food = SurplusFood.fromJson(_validProduct(stock: 97));
+
+    expect(food.quota, lessThanOrEqualTo(10));
+    expect(food.quota, greaterThan(0));
   });
 
   test('model valid: quota 0 dianggap tidak tersedia', () {
@@ -225,10 +233,38 @@ void main() {
       unitPrice: 5000,
     );
 
-    expect(order.id, 'ord-209');
-    expect(order.pickupCode, 'RESCUE-209');
+    expect(order.id, startsWith('ord-209-'));
+    expect(order.pickupCode, startsWith('RESCUE-209-'));
     expect(order.totalPrice, 10000);
     expect(order.status, OrderStatus.pending);
+  });
+
+  test('POST: dua pesanan berurutan menghasilkan id berbeda (tidak tabrakan)',
+      () async {
+    final repo = ApiOrderRepository(
+      client: MockClient((_) async {
+        // dummyjson selalu mengembalikan id 209 untuk setiap POST.
+        return http.Response(jsonEncode({'id': 209}), 201);
+      }),
+    );
+
+    final first = await repo.createOrder(
+      buyerName: 'A',
+      surplusFoodId: '16',
+      surplusFoodName: 'Apple',
+      quantity: 1,
+      unitPrice: 1000,
+    );
+    final second = await repo.createOrder(
+      buyerName: 'B',
+      surplusFoodId: '17',
+      surplusFoodName: 'Beef',
+      quantity: 1,
+      unitPrice: 1000,
+    );
+
+    expect(first.id, isNot(second.id));
+    expect(first.pickupCode, isNot(second.pickupCode));
   });
 
   test('POST gagal: status 400 melempar ApiException', () async {

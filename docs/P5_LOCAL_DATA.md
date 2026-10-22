@@ -88,13 +88,13 @@ semua platform — persis seperti instruksi P5 ("Flutter: shared_preferences").
 | **Create** | `OrdersNotifier.addOrder()` | Otomatis saat booking sukses (`booking_screen.dart`) |
 | **Read** | `OrdersNotifier.build()` → `loadOrders()` | Status Pesanan & Riwayat Pesanan dibuka |
 | **Update** | `markCompleted()` / `markCancelled()` | Tombol "Sudah Pickup" / "Batalkan" di **Status Pesanan** |
-| **Delete** | `deleteOrder()` | Tombol "Hapus Pesanan" di **Status Pesanan** (hanya untuk pesanan yang sudah selesai/dibatalkan) |
+| **Delete** | — | **Tidak tersedia untuk user.** Pesanan bersifat permanen dan tidak bisa dihapus dari Status maupun Riwayat |
 
 > **Catatan pemisahan layar:** Riwayat Pesanan sengaja dibuat **read-only** —
-> pengguna tidak boleh mengubah atau menghapus riwayatnya. Semua aksi Update &
-> Delete ada di Status Pesanan. Aksi Update hanya muncul untuk pesanan yang
-> masih `pending`; aksi Delete hanya muncul untuk pesanan yang sudah selesai /
-> dibatalkan.
+> pengguna tidak boleh mengubah atau menghapus riwayatnya. Aksi Update ada di
+> Status Pesanan dan hanya muncul untuk pesanan yang masih `pending`.
+> **Tidak ada aksi hapus sama sekali** — pesanan bersifat permanen supaya
+> riwayat tidak bisa dimanipulasi.
 
 Semua operasi langsung tulis ke storage, lalu state di-refresh dari storage
 (bukan dari memory). Ini memastikan yang ditampilkan selalu sama dengan yang
@@ -174,8 +174,8 @@ Lalu:
 4. **Update** — Di Status Pesanan, tekan "Sudah Pickup" (status jadi SELESAI /
    hijau) atau "Batalkan" (status jadi DIBATALKAN / merah). Refresh lagi →
    perubahan tetap.
-5. **Delete** — Pesanan yang sudah selesai/dibatalkan menampilkan tombol
-   "Hapus Pesanan". Tekan, lalu refresh → pesanan hilang permanen.
+5. **Delete** — tidak ada di UI. Pesanan tidak bisa dihapus oleh user, baik di
+   Status Pesanan maupun di Riwayat Pesanan.
 
 Cek storage langsung di browser: DevTools (F12) → tab **Application** →
 **Local Storage** → `http://localhost:xxxxx` → key `food_rescue_orders`.

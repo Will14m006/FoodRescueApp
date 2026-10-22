@@ -11,8 +11,10 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:food_rescue_app/main.dart';
+import 'package:food_rescue_app/models/order_model.dart';
 import 'package:food_rescue_app/providers/booking_provider.dart';
 import 'package:food_rescue_app/providers/catalog_provider.dart';
+import 'package:food_rescue_app/providers/orders_provider.dart';
 import 'package:food_rescue_app/repositories/order_repository.dart';
 import 'package:food_rescue_app/repositories/surplus_food_repository.dart';
 
@@ -52,6 +54,11 @@ void main() {
     await tester.tap(find.text('Pesan Sekarang'));
     await tester.pumpAndSettle();
 
+    // Dialog konfirmasi pesanan.
+    expect(find.text('Konfirmasi Pesanan'), findsOneWidget);
+    await tester.tap(find.text('Ya, Pesan'));
+    await tester.pumpAndSettle();
+
     // 5. Bottom sheet sukses harus muncul
     expect(find.text('Pesanan Berhasil! 🎉'), findsOneWidget);
     expect(find.text('RESCUE-101'), findsOneWidget);
@@ -75,7 +82,9 @@ void main() {
     await tester.tap(find.text('Sudah Pickup'));
     await tester.pumpAndSettle();
     expect(find.text('SELESAI'), findsOneWidget);
-    expect(find.text('Hapus Pesanan'), findsOneWidget);
+    // Pesanan tidak bisa dihapus user — tidak ada tombol hapus.
+    expect(find.text('Hapus Pesanan'), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
 
     // 10. Kembali, lalu buka Riwayat Pesanan (read-only)
     await tester.tap(find.byIcon(Icons.arrow_back_rounded));
@@ -92,6 +101,43 @@ void main() {
     expect(find.text('Sudah Pickup'), findsNothing);
     expect(find.text('Batalkan'), findsNothing);
     expect(find.text('Hapus Pesanan'), findsNothing);
+  });
+
+  testWidgets('2 pesanan: keduanya bisa ditandai pickup (tidak tabrakan id)',
+      (WidgetTester tester) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    Order order(String id) => Order(
+          id: id,
+          pickupCode: 'RESCUE-$id',
+          buyerName: 'William',
+          surplusFoodName: 'Roti',
+          quantity: 1,
+          totalPrice: 10000,
+          status: OrderStatus.pending,
+          createdAt: DateTime(2026, 10, 20),
+        );
+
+    await container.read(ordersProvider.notifier).addOrder(order('ord-209-aaa'));
+    await container.read(ordersProvider.notifier).addOrder(order('ord-209-bbb'));
+
+    await container.read(ordersProvider.notifier).markCompleted('ord-209-aaa');
+
+    final orders = container.read(ordersProvider).requireValue;
+    expect(orders, hasLength(2));
+    // Hanya pesanan pertama yang selesai; yang kedua tetap pending.
+    expect(orders.firstWhere((o) => o.id == 'ord-209-aaa').status,
+        OrderStatus.completed);
+    expect(orders.firstWhere((o) => o.id == 'ord-209-bbb').status,
+        OrderStatus.pending);
+
+    // Pesanan kedua masih bisa diubah.
+    await container.read(ordersProvider.notifier).markCompleted('ord-209-bbb');
+    final after = container.read(ordersProvider).requireValue;
+    expect(after.every((o) => o.status == OrderStatus.completed), isTrue);
   });
 }
 

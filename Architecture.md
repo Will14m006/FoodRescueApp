@@ -73,7 +73,7 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
      diturunkan dari ID yang dikembalikan server (contoh: `RESCUE-209`).
    * Tombol pesan *disabled* saat proses submit untuk mencegah double-tap.
 4. **Orders Screen (Status & Riwayat Pesanan)**
-   * Status Pesanan: lihat status + aksi "Sudah Pickup" / "Batalkan" / "Hapus".
+   * Status Pesanan: lihat status + aksi "Sudah Pickup" / "Batalkan". Pesanan tidak bisa dihapus user (never hard-delete).
    * Riwayat Pesanan: read-only, data diambil dari local storage.
    * Semua data disimpan lokal di perangkat (SharedPreferences / localStorage)
      dan tetap tersedia setelah aplikasi ditutup & dibuka lagi.
@@ -97,7 +97,7 @@ Membantu restoran atau kafe (Mitra) menjual makanan surplus layak konsumsi di ak
 4. **Orders Screen (Riwayat Pesanan)**
    * Daftar pesanan yang disimpan di local storage, **read-only**.
 5. **Order Status Screen (Status Pesanan)**
-   * Daftar pesanan + aksi Update (Sudah Pickup / Batalkan) & Delete (Hapus).
+   * Daftar pesanan + aksi Update (Sudah Pickup / Batalkan). Tidak ada aksi hapus.
 6. **Profile Screen**
    * Halaman profil pembeli / mitra (placeholder).
 
@@ -131,7 +131,7 @@ food_rescue_app/
 │   │   ├── login_screen.dart
 │   │   ├── dashboard_screen.dart      # Fitur 1: Katalog Surplus
 │   │   ├── booking_screen.dart        # Fitur 2: Booking / Pemesanan
-│   │   ├── order_status_screen.dart   # P5: Status Pesanan (aksi Update/Delete)
+│   │   ├── order_status_screen.dart   # P5: Status Pesanan (aksi Update)
 │   │   ├── orders_screen.dart         # P5: Riwayat Pesanan (read-only)
 │   │   └── profile_screen.dart
 │   ├── widgets/                       # Reusable component

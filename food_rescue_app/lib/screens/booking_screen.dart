@@ -42,11 +42,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 
   String? _validateName(String? value) {
+    // Nama pemesan bebas: tidak ada batas minimal karakter.
     if (value == null || value.trim().isEmpty) {
       return 'Nama pemesan wajib diisi.';
-    }
-    if (value.trim().length < 3) {
-      return 'Nama minimal 3 karakter.';
     }
     return null;
   }
@@ -75,11 +73,56 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     // Tutup keyboard supaya loading terlihat jelas.
     FocusScope.of(context).unfocus();
 
+    final qty = int.parse(_qtyController.text.trim());
+    final total = food.discountPrice * qty;
+
+    // Dialog konfirmasi sebelum pesanan dikirim ke backend.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Text('Konfirmasi Pesanan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pastikan pesanan kamu sudah benar.',
+              style: AppTextStyles.body,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ConfirmRow(label: 'Makanan', value: food.name),
+            _ConfirmRow(label: 'Jumlah', value: '$qty porsi'),
+            _ConfirmRow(label: 'Atas nama', value: _nameController.text.trim()),
+            _ConfirmRow(
+              label: 'Total',
+              value: 'Rp ${total.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+              isBold: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Periksa Lagi'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ya, Pesan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     await ref.read(bookingProvider.notifier).submit(
           buyerName: _nameController.text.trim(),
           surplusFoodId: food.id,
           surplusFoodName: food.name,
-          quantity: int.parse(_qtyController.text.trim()),
+          quantity: qty,
           unitPrice: food.discountPrice,
         );
   }
@@ -421,6 +464,44 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConfirmRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+
+  const _ConfirmRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(label, style: AppTextStyles.caption),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 13,
+                color: isBold ? AppColors.primary : AppColors.textPrimary,
+                fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

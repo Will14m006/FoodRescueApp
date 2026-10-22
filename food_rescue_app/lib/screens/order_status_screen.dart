@@ -120,6 +120,8 @@ class OrderStatusScreen extends ConsumerWidget {
                       return _StatusOrderCard(
                         order: order,
                         // Aksi Update hanya muncul untuk pesanan yang masih pending.
+                        // Pesanan TIDAK bisa dihapus oleh user — riwayat pesanan
+                        // bersifat permanen.
                         onComplete: isActive
                             ? () => ref
                                 .read(ordersProvider.notifier)
@@ -129,14 +131,6 @@ class OrderStatusScreen extends ConsumerWidget {
                             ? () => ref
                                 .read(ordersProvider.notifier)
                                 .markCancelled(order.id)
-                            : null,
-                        // Aksi Delete hanya untuk pesanan yang sudah selesai /
-                        // dibatalkan (pembersihan). Pesanan pending tidak bisa
-                        // dihapus sebelum ditandai selesai/dibatalkan.
-                        onDelete: !isActive
-                            ? () => ref
-                                .read(ordersProvider.notifier)
-                                .deleteOrder(order.id)
                             : null,
                       );
                     },
@@ -155,13 +149,11 @@ class _StatusOrderCard extends StatelessWidget {
   final Order order;
   final VoidCallback? onComplete;
   final VoidCallback? onCancel;
-  final VoidCallback? onDelete;
 
   const _StatusOrderCard({
     required this.order,
     required this.onComplete,
     required this.onCancel,
-    required this.onDelete,
   });
 
   Color get _statusColor => Color(order.status.colorValue);
@@ -274,22 +266,9 @@ class _StatusOrderCard extends StatelessWidget {
                     ),
                 ],
               )
-            else if (onDelete != null)
-              Row(
-                children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Hapus Pesanan',
-                      color: AppColors.textSecondary,
-                      onTap: onDelete!,
-                    ),
-                  ),
-                ],
-              )
             else
               Text(
-                'Pesanan ini sudah ${order.status == OrderStatus.completed ? 'diambil' : 'dibatalkan'} — tidak bisa diubah lagi.',
+                'Pesanan ini sudah ${order.status == OrderStatus.completed ? 'diambil' : 'dibatalkan'} — status tidak bisa diubah lagi.',
                 style: AppTextStyles.caption.copyWith(
                   fontStyle: FontStyle.italic,
                   color: AppColors.textHint,

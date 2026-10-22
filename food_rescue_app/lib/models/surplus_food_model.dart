@@ -97,6 +97,7 @@ class SurplusFood {
     final original = (price * _usdToIdr).round();
     final discount = (json['discountPercentage'] as num?)?.toDouble() ?? 0;
     final discounted = (original * (1 - discount / 100)).round();
+    final category = _categoryFor(json['category'] as String?);
 
     return SurplusFood(
       id: id.toString(),
@@ -107,9 +108,9 @@ class SurplusFood {
           : 'Makanan surplus siap diselamatkan hari ini.',
       originalPrice: original,
       discountPrice: discounted,
-      quota: stock,
+      quota: _quotaFor(stock, category),
       pickupWindow: _pickupWindowFor(id is int ? id : 0),
-      category: _categoryFor(json['category'] as String?),
+      category: category,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       sold: (json['reviews'] as List?)?.length ?? 0,
       emoji: _emojiFor(json['category'] as String?, title),
@@ -117,6 +118,34 @@ class SurplusFood {
   }
 
   static const _usdToIdr = 16000;
+
+  /// Kuota maksimum yang masuk akal untuk makanan surplus.
+  ///
+  /// Stok dari API bisa sangat besar (mis. 97), padahal ini makanan sisa yang
+  /// harus habis hari itu. Nilai di sini adalah batas atas per kategori.
+  static int quotaCeiling(FoodCategory category) {
+    switch (category) {
+      case FoodCategory.main:
+        return 10; // makanan berat: porsi terbatas
+      case FoodCategory.bakery:
+        return 6; // roti: biasanya per paket
+      case FoodCategory.snack:
+        return 8;
+      case FoodCategory.drink:
+        return 5; // minuman: paling cepat habis
+      case FoodCategory.all:
+        return 10;
+    }
+  }
+
+  /// Kuota tampilan: stok API dipotong ke batas kategori, minimal 1.
+  /// Sisanya tetap bervariasi supaya tidak semua item terlihat sama.
+  static int _quotaFor(int stock, FoodCategory category) {
+    if (stock <= 0) return 0;
+    final ceiling = quotaCeiling(category);
+    final derived = 1 + (stock.abs() % ceiling);
+    return derived > ceiling ? ceiling : derived;
+  }
 
   static String _merchantFor(String? category) {
     switch (category) {

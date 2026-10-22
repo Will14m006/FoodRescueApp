@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Nama pemesan wajib diisi.'), findsOneWidget);
   });
 
-  testWidgets('validasi: nama kurang dari 3 karakter ditolak',
+  testWidgets('validasi: nama 2 karakter diterima (tidak ada minimal)',
       (WidgetTester tester) async {
     await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
     await tester.pumpAndSettle();
@@ -81,7 +81,9 @@ void main() {
     await tester.tap(find.text('Pesan Sekarang'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nama minimal 3 karakter.'), findsOneWidget);
+    // Tidak ada error validasi nama; langsung masuk dialog konfirmasi.
+    expect(find.text('Nama minimal 3 karakter.'), findsNothing);
+    expect(find.text('Konfirmasi Pesanan'), findsOneWidget);
   });
 
   testWidgets('validasi: jumlah melebihi kuota ditolak',
@@ -111,6 +113,11 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(0), 'William');
     await _scrollToButton(tester);
     await tester.tap(find.text('Pesan Sekarang'));
+    await tester.pumpAndSettle();
+
+    // Dialog konfirmasi muncul lebih dulu.
+    expect(find.text('Konfirmasi Pesanan'), findsOneWidget);
+    await tester.tap(find.text('Ya, Pesan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200)); // masih loading (delay 30 detik)
 
@@ -125,6 +132,24 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('konfirmasi: tombol Periksa Lagi membatalkan pesanan',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'William');
+    await _scrollToButton(tester);
+    await tester.tap(find.text('Pesan Sekarang'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Periksa Lagi'));
+    await tester.pumpAndSettle();
+
+    // Dialog tertutup dan tidak ada pesanan yang dibuat.
+    expect(find.text('Konfirmasi Pesanan'), findsNothing);
+    expect(find.text('Pesanan Berhasil! 🎉'), findsNothing);
+  });
+
   testWidgets('state sukses: kode pick-up ditampilkan setelah submit berhasil',
       (WidgetTester tester) async {
     await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
@@ -133,6 +158,9 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(0), 'William');
     await _scrollToButton(tester);
     await tester.tap(find.text('Pesan Sekarang'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ya, Pesan'));
     await tester.pumpAndSettle();
 
     expect(find.text('Pesanan Berhasil! 🎉'), findsOneWidget);

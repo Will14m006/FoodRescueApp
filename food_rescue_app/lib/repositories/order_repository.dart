@@ -79,12 +79,19 @@ class ApiOrderRepository implements OrderRepository {
     }
 
     final serverId = decoded['id'];
-    // Kode pick-up dibuat dari ID yang dikembalikan server, jadi terbukti
-    // pesanan benar-benar tercatat di backend.
-    final code = 'RESCUE-$serverId';
+
+    // dummyjson selalu mengembalikan id cart yang sama (209) untuk setiap POST,
+    // jadi id/kode dari server tidak boleh dipakai mentah-mentah: dua pesanan
+    // akan bertabrakan dan hanya pesanan pertama yang bisa diubah/dihapus.
+    // Solusi: gabungkan id server + timestamp agar setiap pesanan unik,
+    // dan tetap terbukti tersimpan di backend (request POST berhasil).
+    final uniqueSuffix =
+        DateTime.now().microsecondsSinceEpoch % 1000000;
+    final orderId = 'ord-$serverId-$uniqueSuffix';
+    final code = 'RESCUE-$serverId-$uniqueSuffix';
 
     return Order(
-      id: 'ord-$serverId',
+      id: orderId,
       pickupCode: code,
       buyerName: buyerName,
       surplusFoodName: surplusFoodName,
