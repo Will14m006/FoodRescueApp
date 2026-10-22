@@ -10,7 +10,9 @@ Banyak restoran dan toko roti terpaksa membuang makanan layak konsumsi (*food wa
 
 ## 🌟 Fitur Utama
 
-* **Multi-Role Authentication:** Sistem *login* yang memisahkan hak akses dan antarmuka untuk akun Mitra (Penjual) dan akun Pembeli.
+* **Autentikasi (API):** Login ke `dummyjson.com/auth/login`, data user tampil di profil, logout dengan konfirmasi.
+* **Lokasi (GPS):** Titik jemput terdekat di dashboard, dengan penanganan izin ditolak / GPS mati / diblokir permanen.
+* **Kamera:** Foto bukti pengambilan saat menandai pesanan "Sudah Pickup".
 * **Merchant Dashboard (Manajemen Kuota):** Mitra dapat mengunggah "Paket Penyelamat", menentukan kuota harian, mengatur harga diskon, dan menetapkan batas waktu pengambilan (*pick-up window*).
 * **Katalog Surplus (Buyer Feed):** Halaman utama yang menampilkan daftar makanan sisa yang tersedia hari ini dari berbagai mitra secara aktual.
 * **Sistem Booking & Pick-up Code:** Pembeli dapat memesan makanan dan mendapatkan kode unik (misal: RESCUE-101) untuk ditukarkan di lokasi.
@@ -22,10 +24,12 @@ Banyak restoran dan toko roti terpaksa membuang makanan layak konsumsi (*food wa
 * **State Management:** Riverpod (`flutter_riverpod`)
 * **Backend & Web Admin:** Laravel (PHP) terintegrasi dengan RESTful API (direncanakan)
 * **Database Pusat:** MySQL (direncanakan)
-* **Penyimpanan Lokal (Mobile):** SQLite / Shared Preferences (direncanakan)
+* **Penyimpanan Lokal (Mobile):** SharedPreferences
+* **Advanced Features:** Autentikasi (HTTP), Lokasi (`geolocator`), Kamera (`image_picker`)
 * **Environment:** Android Studio & Android SDK, VS Code, Flutter SDK
 
 Detail arsitektur dan struktur folder ada di [Architecture.md](./Architecture.md).
+Dokumentasi P7 ada di [docs/P7_MVP_ADVANCED.md](./docs/P7_MVP_ADVANCED.md).
 
 ## 📦 Instalasi & Menjalankan
 
@@ -52,3 +56,4 @@ flutter test
 | P4 | 2 fitur dengan state management (Riverpod) | ✅ Selesai |
 | P5 | Local Data & Persistence (SharedPreferences) | ✅ Selesai |
 | P6 | Integrasi API & Vertical Slice (http + 15 unit test) | ✅ Selesai |
+| P7 | MVP lengkap + 3 advanced feature (Autentikasi, Lokasi, Kamera) | ✅ Selesai |

@@ -7,17 +7,42 @@ import '../core/theme/app_text_styles.dart';
 import '../models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/empty_state_view.dart';
+import '../widgets/pickup_proof_dialog.dart';
 
-/// P5: Status Pesanan.
+/// P7: Status Pesanan.
 ///
 /// Di layar ini pengguna melihat status pesanannya dan bisa melakukan aksi:
-/// - tandai sudah diambil (Update -> completed)
+/// - tandai sudah diambil (Update -> completed) **dengan bukti foto kamera**
 /// - batalkan pesanan (Update -> cancelled)
 ///
 /// Aksi Update (CRUD) memang berada di sini, BUKAN di Riwayat Pesanan.
 /// Riwayat Pesanan sifatnya read-only (hanya lihat data tersimpan).
 class OrderStatusScreen extends ConsumerWidget {
   const OrderStatusScreen({super.key});
+
+  /// Advanced feature #3 (Kamera): minta bukti foto sebelum menandai pickup.
+  Future<void> _confirmPickup(
+    BuildContext context,
+    WidgetRef ref,
+    Order order,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => const PickupProofDialog(),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(ordersProvider.notifier).markCompleted(order.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesanan ditandai sudah diambil ✅'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -123,9 +148,7 @@ class OrderStatusScreen extends ConsumerWidget {
                         // Pesanan TIDAK bisa dihapus oleh user — riwayat pesanan
                         // bersifat permanen.
                         onComplete: isActive
-                            ? () => ref
-                                .read(ordersProvider.notifier)
-                                .markCompleted(order.id)
+                            ? () => _confirmPickup(context, ref, order)
                             : null,
                         onCancel: isActive
                             ? () => ref

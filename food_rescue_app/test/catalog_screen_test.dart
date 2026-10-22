@@ -11,9 +11,40 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:food_rescue_app/main.dart';
 import 'package:food_rescue_app/models/surplus_food_model.dart';
+import 'package:food_rescue_app/providers/auth_provider.dart';
 import 'package:food_rescue_app/providers/catalog_provider.dart';
+import 'package:food_rescue_app/providers/location_provider.dart';
+import 'package:food_rescue_app/repositories/auth_repository.dart';
 import 'package:food_rescue_app/repositories/surplus_food_repository.dart';
 import 'package:food_rescue_app/widgets/food_card_skeleton.dart';
+
+/// P7: fake auth supaya widget test tidak memanggil API login.
+class _FakeAuthRepo implements AuthRepository {
+  @override
+  Future<AuthUser> login({required String username, required String password}) async {
+    return const AuthUser(
+      id: 1,
+      name: 'William',
+      email: 'william@test.com',
+      token: 'token-test',
+    );
+  }
+}
+
+/// P7: fake lokasi supaya widget test tidak meminta izin GPS.
+class _FakeLocationRepo implements LocationRepository {
+  @override
+  Future<LocationResult> getCurrentPosition() async =>
+      const LocationResult(permission: LocationPermissionState.granted);
+
+  @override
+  Future<bool> openAppSettings() async => true;
+}
+
+List<Override> get _advancedFeatureOverrides => [
+      authRepositoryProvider.overrideWithValue(_FakeAuthRepo()),
+      locationRepositoryProvider.overrideWithValue(_FakeLocationRepo()),
+    ];
 
 const _testFoods = <SurplusFood>[
   SurplusFood(
@@ -49,7 +80,7 @@ Future<void> _pumpApp(WidgetTester tester, List<Override> overrides) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: overrides,
+      overrides: [..._advancedFeatureOverrides, ...overrides],
       child: const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: FoodRescueApp(),

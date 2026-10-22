@@ -1,15 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Text('Keluar Akun'),
+        content: const Text('Yakin ingin keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    ref.read(authProvider.notifier).logout();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -69,12 +107,12 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md + 2),
                   Text(
-                    'William',
+                    user?.name ?? 'Pengguna',
                     style: AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
                   ),
                   const SizedBox(height: AppSpacing.xs + 2),
                   Text(
-                    'Pembeli • Food Rescuer 🌱',
+                    user?.email ?? 'Pembeli • Food Rescuer 🌱',
                     style: AppTextStyles.body.copyWith(
                       color: AppColors.textOnPrimary.withValues(alpha: 0.9),
                       fontSize: 13,
@@ -144,6 +182,12 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Tentang Aplikasi',
                       subtitle: 'Versi 1.0.0',
                       onTap: () {},
+                    ),
+                    _MenuTile(
+                      icon: Icons.logout_rounded,
+                      title: 'Keluar',
+                      subtitle: 'Logout dari akun ini',
+                      onTap: () => _logout(context, ref),
                     ),
                     const Spacer(),
                     Text(

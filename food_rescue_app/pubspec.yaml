@@ -51,6 +51,10 @@ dependencies:
   # P6: HTTP client untuk integrasi API (GET katalog, POST pesanan).
   http: ^1.2.2
 
+  # P7 advanced features: lokasi (GPS) & kamera.
+  geolocator: ^13.0.1
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

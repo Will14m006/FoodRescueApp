@@ -66,5 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-</dict>
-</plist>
+	<key>NSCameraUsageDescription</key>
+	<string>Kamera dipakai untuk memotret bukti pengambilan makanan.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lokasi dipakai untuk menampilkan titik jemput terdekat.</string>
+</dict></plist>

@@ -11,6 +11,7 @@ import '../widgets/empty_state_view.dart';
 import '../widgets/error_state_view.dart';
 import '../widgets/food_card.dart';
 import '../widgets/food_card_skeleton.dart';
+import '../widgets/location_banner.dart';
 
 /// Fitur 1: Katalog Surplus (Buyer Feed).
 ///
@@ -59,6 +60,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             // === Header ===
             _buildHeader(),
+            // === Lokasi (advanced feature: GPS) ===
+            const LocationBanner(),
             // === Search bar ===
             _buildSearchBar(searchQuery),
             // === Filter kategori ===

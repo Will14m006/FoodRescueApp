@@ -4,6 +4,8 @@
 // isi form -> tekan "Pesan Sekarang" -> buka Riwayat Pesanan -> cek apakah
 // pesanannya muncul. Kalau test ini gagal, berarti ada bug di alurnya.
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,11 +14,57 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:food_rescue_app/main.dart';
 import 'package:food_rescue_app/models/order_model.dart';
+import 'package:food_rescue_app/providers/auth_provider.dart';
 import 'package:food_rescue_app/providers/booking_provider.dart';
+import 'package:food_rescue_app/providers/camera_provider.dart';
 import 'package:food_rescue_app/providers/catalog_provider.dart';
+import 'package:food_rescue_app/providers/location_provider.dart';
 import 'package:food_rescue_app/providers/orders_provider.dart';
+import 'package:food_rescue_app/repositories/auth_repository.dart';
 import 'package:food_rescue_app/repositories/order_repository.dart';
 import 'package:food_rescue_app/repositories/surplus_food_repository.dart';
+
+/// P7: fake auth supaya test tidak memanggil API login.
+class _FakeAuthRepo implements AuthRepository {
+  @override
+  Future<AuthUser> login({required String username, required String password}) async {
+    return const AuthUser(
+      id: 1,
+      name: 'William',
+      email: 'william@test.com',
+      token: 'token-test',
+    );
+  }
+}
+
+/// P7: fake kamera supaya test tidak membuka kamera asli.
+/// Memakai PNG 1x1 asli agar widget Image.memory bisa decode.
+class _FakeCameraRepo implements CameraRepository {
+  static final _png = Uint8List.fromList([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+    0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+    0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+    0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+    0x42, 0x60, 0x82,
+  ]);
+
+  @override
+  Future<CameraResult> takePhoto() async => CameraResult(bytes: _png);
+}
+
+/// P7: fake lokasi supaya test tidak meminta izin GPS.
+class _FakeLocationRepo implements LocationRepository {
+  @override
+  Future<LocationResult> getCurrentPosition() async =>
+      const LocationResult(permission: LocationPermissionState.granted);
+
+  @override
+  Future<bool> openAppSettings() async => true;
+}
 
 void main() {
   setUp(() {
@@ -79,8 +127,17 @@ void main() {
     expect(find.text('Batalkan'), findsOneWidget);
 
     // 9. Tandai sudah pickup (Update status -> completed)
+    // P7: kini ada dialog bukti foto kamera. Kamera di-mock agar test jalan.
     await tester.tap(find.text('Sudah Pickup'));
     await tester.pumpAndSettle();
+    expect(find.text('Bukti Pengambilan'), findsOneWidget);
+
+    await tester.tap(find.text('Ambil Foto'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Konfirmasi'));
+    await tester.pumpAndSettle();
+
     expect(find.text('SELESAI'), findsOneWidget);
     // Pesanan tidak bisa dihapus user — tidak ada tombol hapus.
     expect(find.text('Hapus Pesanan'), findsNothing);
@@ -159,6 +216,10 @@ Future<void> _pumpApp(WidgetTester tester) async {
         orderRepositoryProvider.overrideWithValue(
           FakeOrderRepository(delay: const Duration(milliseconds: 10)),
         ),
+        // P7: fake auth & lokasi (advanced feature).
+        authRepositoryProvider.overrideWithValue(_FakeAuthRepo()),
+        locationRepositoryProvider.overrideWithValue(_FakeLocationRepo()),
+        cameraRepositoryProvider.overrideWithValue(_FakeCameraRepo()),
       ],
       child: const MaterialApp(
         debugShowCheckedModeBanner: false,
