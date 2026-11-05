@@ -133,11 +133,13 @@ food_rescue_app/
 ├── lib/
 │   ├── main.dart                      # Entry point + ProviderScope + routing
 │   ├── core/                          # Design system (tema, warna, tipografi)
-│   │   └── theme/
-│   │       ├── app_colors.dart
-│   │       ├── app_spacing.dart
-│   │       ├── app_text_styles.dart
-│   │       └── app_theme.dart
+│   │   ├── theme/
+│   │   │   ├── app_colors.dart
+│   │   │   ├── app_spacing.dart
+│   │   │   ├── app_text_styles.dart
+│   │   │   └── app_theme.dart
+│   │   └── ui/
+│   │       └── app_feedback.dart      # P8: snackbar sukses/error/info
 │   ├── routes/                        # Definisi named routes
 │   │   └── app_routes.dart
 │   ├── screens/                       # Lapisan UI (widget)
@@ -155,7 +157,9 @@ food_rescue_app/
 │   │   ├── empty_state_view.dart
 │   │   ├── error_state_view.dart
 │   │   ├── location_banner.dart       # P7: UI lokasi (advanced #2)
-│   │   └── pickup_proof_dialog.dart   # P7: UI kamera (advanced #3)
+│   │   ├── pickup_proof_dialog.dart   # P7: UI kamera (advanced #3)
+│   │   ├── responsive_body.dart       # P8: layout adaptif + breakpoints
+│   │   └── circle_icon_button.dart    # P8: tombol ikon aksesibel (48px + tooltip)
 │   ├── models/                        # Model data
 │   │   ├── surplus_food_model.dart
 │   │   └── order_model.dart
@@ -178,6 +182,7 @@ food_rescue_app/
     ├── booking_to_orders_test.dart     # P5: integration test alur lengkap
     ├── api_integration_test.dart       # P6: 15 unit test API & model
     ├── advanced_features_test.dart     # P7: 10 test auth/lokasi/kamera
+    ├── p8_ux_test.dart                 # P8: 6 test layout/keyboard/a11y/feedback
     └── orders_persistence_test.dart   # P5: persistence test
 ```
 
@@ -237,8 +242,23 @@ Repository lokasi & kamera mengembalikan objek hasil (`LocationResult`, `CameraR
 bukan melempar exception, sehingga penolakan izin tidak membuat aplikasi crash.
 Widget test meng-override ketiga repository dengan fake karena plugin butuh platform channel.
 
-## 11. Deliverables
+## 11. UX Rules (P8)
+* **Layout adaptif:** konten dibungkus `ResponsiveBody` (max 480–1100 px);
+  grid katalog memakai `SliverGridDelegateWithMaxCrossAxisExtent` sehingga
+  kolom menyesuaikan lebar layar tanpa `if`.
+* **Keyboard-safe:** setiap layar berform memakai `SingleChildScrollView` +
+  `padding.bottom = MediaQuery.viewInsetsOf(context).bottom`, dan field memakai
+  `textInputAction` agar navigasi keyboard jelas.
+* **Aksesibilitas:** tombol ikon memakai `IconButton`/`InkWell` (ripple,
+  tooltip, target sentuh ≥ 48 px); field memakai `Semantics(label: ...)`;
+  card makanan punya satu label ringkas untuk screen reader.
+* **Feedback aksi:** semua aksi memberi respons — snackbar (`AppFeedback`),
+  dialog konfirmasi untuk aksi destruktif, spinner + tombol disabled untuk
+  proses async. Tidak ada handler kosong (`onTap: () {}`).
+
+## 12. Deliverables
 * Source code Flutter yang bisa dijalankan (`flutter run`).
-* Widget test untuk setiap state utama (`flutter test` — 52 test lulus).
-* Dokumentasi P4, P6 (`docs/P6_API_INTEGRATION.md`), P7 (`docs/P7_MVP_ADVANCED.md`).
+* Widget test untuk setiap state utama (`flutter test` — 58 test lulus).
+* Dokumentasi P4, P6 (`docs/P6_API_INTEGRATION.md`), P7 (`docs/P7_MVP_ADVANCED.md`),
+  P8 (`docs/P8_UX_RESPONSIVE.md`) + screenshot di `docs/screenshots/`.
 * README dengan instruksi instalasi dan menjalankan aplikasi.

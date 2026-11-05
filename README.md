@@ -30,6 +30,9 @@ Banyak restoran dan toko roti terpaksa membuang makanan layak konsumsi (*food wa
 
 Detail arsitektur dan struktur folder ada di [Architecture.md](./Architecture.md).
 Dokumentasi P7 ada di [docs/P7_MVP_ADVANCED.md](./docs/P7_MVP_ADVANCED.md).
+Dokumentasi P8 (layout adaptif, keyboard-safe, aksesibilitas, feedback) ada di
+[docs/P8_UX_RESPONSIVE.md](./docs/P8_UX_RESPONSIVE.md) beserta screenshot di
+[docs/screenshots](./docs/screenshots).
 
 ## 📦 Instalasi & Menjalankan
 
@@ -57,3 +60,4 @@ flutter test
 | P5 | Local Data & Persistence (SharedPreferences) | ✅ Selesai |
 | P6 | Integrasi API & Vertical Slice (http + 15 unit test) | ✅ Selesai |
 | P7 | MVP lengkap + 3 advanced feature (Autentikasi, Lokasi, Kamera) | ✅ Selesai |
+| P8 | Layout adaptif, keyboard-safe, accessibility, feedback aksi | ✅ Selesai |

@@ -9,7 +9,9 @@ import '../models/surplus_food_model.dart';
 import '../providers/booking_provider.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/app_text_field.dart';
+import '../widgets/circle_icon_button.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/responsive_body.dart';
 
 /// Fitur 2: Booking / Pemesanan makanan surplus.
 ///
@@ -276,21 +278,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm + 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.outline),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_rounded,
-                        size: 20,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                  CircleIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Kembali',
+                    onPressed: () => Navigator.pop(context),
+                    background: AppColors.surface,
+                    foreground: AppColors.textPrimary,
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Text('Pesan Makanan', style: AppTextStyles.title),
@@ -301,15 +294,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             // === Form ===
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
+                // P8: keyboard-safe — dorong konten ke atas saat keyboard aktif
+                // supaya field yang difokus tetap terlihat.
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.xl,
                   AppSpacing.md + 2,
                   AppSpacing.xl,
-                  AppSpacing.xxl + 40,
+                  AppSpacing.xxl + 40 + MediaQuery.viewInsetsOf(context).bottom,
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
+                child: ResponsiveBody(
+                  maxWidth: 640,
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Kartu makanan
@@ -410,6 +407,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         validator: _validateName,
                         prefixIcon: Icons.person_outline_rounded,
                         textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       AppTextField(
@@ -418,6 +416,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         controller: _qtyController,
                         validator: _validateQuantity,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
                         prefixIcon: Icons.shopping_bag_outlined,
                       ),
                       const SizedBox(height: AppSpacing.lg),
@@ -426,6 +425,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         hint: 'Contoh: tanpa sambal',
                         controller: _noteController,
                         maxLines: 2,
+                        textInputAction: TextInputAction.done,
                         prefixIcon: Icons.note_alt_outlined,
                       ),
                       const SizedBox(height: AppSpacing.xxl),
@@ -457,7 +457,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             ),
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

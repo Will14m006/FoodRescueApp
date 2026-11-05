@@ -9,6 +9,7 @@ import '../repositories/auth_repository.dart';
 import '../routes/app_routes.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/responsive_body.dart';
 
 /// P7 Advanced Feature #1: Autentikasi.
 ///
@@ -82,8 +83,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Column(
-            children: [
+          // P8: keyboard-safe — saat keyboard muncul, field yang difokus
+          // otomatis di-scroll ke area terlihat.
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: ResponsiveBody(
+            maxWidth: 480,
+            child: Column(
+              children: [
               // === Hero ===
               Container(
                 width: double.infinity,
@@ -164,6 +172,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         hint: 'nama@email.com',
                         prefixIcon: Icons.mail_outline_rounded,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
                         controller: _emailController,
                         validator: _validateEmail,
                       ),
@@ -173,6 +183,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         hint: '••••••••',
                         isPassword: true,
                         prefixIcon: Icons.lock_outline_rounded,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
                         controller: _passwordController,
                         validator: _validatePassword,
                       ),
@@ -251,7 +263,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

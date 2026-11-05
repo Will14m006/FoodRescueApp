@@ -17,6 +17,8 @@ class AppTextField extends StatelessWidget {
   final int maxLines;
   final IconData? prefixIcon;
   final TextCapitalization textCapitalization;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
 
   const AppTextField({
     super.key,
@@ -30,6 +32,8 @@ class AppTextField extends StatelessWidget {
     this.maxLines = 1,
     this.prefixIcon,
     this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
+    this.autofillHints,
   });
 
   @override
@@ -47,24 +51,31 @@ class AppTextField extends StatelessWidget {
                 ),
           ),
         ),
-        TextFormField(
-          controller: controller,
-          obscureText: isPassword,
-          keyboardType: keyboardType,
-          validator: validator,
-          onChanged: onChanged,
-          textCapitalization: textCapitalization,
-          maxLines: isPassword ? 1 : maxLines,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textPrimary,
-              ),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, size: 20, color: AppColors.textHint)
-                : null,
-            filled: true,
-            fillColor: AppColors.surface,
+        // P8 aksesibilitas: label field ikut dibacakan screen reader.
+        Semantics(
+          label: label,
+          textField: true,
+          child: TextFormField(
+            controller: controller,
+            obscureText: isPassword,
+            keyboardType: keyboardType,
+            validator: validator,
+            onChanged: onChanged,
+            textCapitalization: textCapitalization,
+            textInputAction: textInputAction,
+            autofillHints: autofillHints,
+            maxLines: isPassword ? 1 : maxLines,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: prefixIcon != null
+                  ? Icon(prefixIcon, size: 20, color: AppColors.textHint)
+                  : null,
+              filled: true,
+              fillColor: AppColors.surface,
+            ),
           ),
         ),
       ],

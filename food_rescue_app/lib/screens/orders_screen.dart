@@ -7,7 +7,9 @@ import '../core/theme/app_text_styles.dart';
 import '../models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../routes/app_routes.dart';
+import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
+import '../widgets/responsive_body.dart';
 
 /// P5: Local Data & Persistence — Riwayat Pesanan (read-only).
 ///
@@ -48,20 +50,10 @@ class OrdersScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm + 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.textOnPrimary.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: AppColors.textOnPrimary,
-                        size: 18,
-                      ),
-                    ),
+                  CircleIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Kembali',
+                    onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
@@ -83,47 +75,50 @@ class OrdersScreen extends ConsumerWidget {
 
             // === Daftar riwayat (read-only) ===
             Expanded(
-              child: ordersAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => EmptyStateView(
-                  emoji: '❌',
-                  title: 'Gagal Memuat',
-                  message: 'Terjadi kesalahan saat memuat pesanan.',
-                  actionLabel: 'Coba Lagi',
-                  onAction: () => ref.read(ordersProvider.notifier).refresh(),
-                ),
-                data: (orders) {
-                  if (orders.isEmpty) {
-                    return EmptyStateView(
-                      emoji: '🧾',
-                      title: 'Belum Ada Riwayat',
-                      message:
-                          'Riwayat pesanan kamu akan muncul di sini dan tersimpan permanen di perangkat.',
-                      actionLabel: 'Lihat Status Pesanan',
-                      onAction: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.orderStatus,
-                      ),
-                    );
-                  }
+              child: ResponsiveBody(
+                maxWidth: 720,
+                child: ordersAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => EmptyStateView(
+                    emoji: '❌',
+                    title: 'Gagal Memuat',
+                    message: 'Terjadi kesalahan saat memuat pesanan.',
+                    actionLabel: 'Coba Lagi',
+                    onAction: () =>
+                        ref.read(ordersProvider.notifier).refresh(),
+                  ),
+                  data: (orders) {
+                    if (orders.isEmpty) {
+                      return EmptyStateView(
+                        emoji: '🧾',
+                        title: 'Belum Ada Riwayat',
+                        message:
+                            'Riwayat pesanan kamu akan muncul di sini dan tersimpan permanen di perangkat.',
+                        actionLabel: 'Lihat Status Pesanan',
+                        onAction: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.orderStatus,
+                        ),
+                      );
+                    }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.xl,
-                      AppSpacing.lg + 4,
-                      AppSpacing.xl,
-                      AppSpacing.xxl + 40,
-                    ),
-                    itemCount: orders.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppSpacing.md + 2),
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      return _HistoryOrderCard(order: order);
-                    },
-                  );
-                },
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.lg + 4,
+                        AppSpacing.xl,
+                        AppSpacing.xxl + 40,
+                      ),
+                      itemCount: orders.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: AppSpacing.md + 2),
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+                        return _HistoryOrderCard(order: order);
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],

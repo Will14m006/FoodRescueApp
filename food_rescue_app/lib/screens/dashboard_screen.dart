@@ -7,11 +7,13 @@ import '../core/theme/app_text_styles.dart';
 import '../models/surplus_food_model.dart';
 import '../providers/catalog_provider.dart';
 import '../routes/app_routes.dart';
+import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
 import '../widgets/error_state_view.dart';
 import '../widgets/food_card.dart';
 import '../widgets/food_card_skeleton.dart';
 import '../widgets/location_banner.dart';
+import '../widgets/responsive_body.dart';
 
 /// Fitur 1: Katalog Surplus (Buyer Feed).
 ///
@@ -61,47 +63,54 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             // === Header ===
             _buildHeader(),
             // === Lokasi (advanced feature: GPS) ===
-            const LocationBanner(),
+            const ResponsiveBody(maxWidth: 1100, child: LocationBanner()),
             // === Search bar ===
             _buildSearchBar(searchQuery),
             // === Filter kategori ===
             _buildCategoryChips(category),
             // === Konten utama ===
             Expanded(
-              child: catalogAsync.when(
-                loading: () => _buildSkeletonGrid(),
-                error: (error, stack) => ErrorStateView(
-                  message: error.toString(),
-                  onRetry: () => ref.read(catalogProvider.notifier).retry(),
+              child: ResponsiveBody(
+                maxWidth: 1100,
+                child: catalogAsync.when(
+                  loading: () => _buildSkeletonGrid(),
+                  error: (error, stack) => ErrorStateView(
+                    message: error.toString(),
+                    onRetry: () => ref.read(catalogProvider.notifier).retry(),
+                  ),
+                  data: (foods) {
+                    final filtered = _filter(foods, searchQuery, category);
+
+                    if (filtered.isEmpty) {
+                      return EmptyStateView(
+                        emoji: searchQuery.isEmpty && category == FoodCategory.all
+                            ? '🍽️'
+                            : '🔍',
+                        title: searchQuery.isEmpty && category == FoodCategory.all
+                            ? 'Belum Ada Makanan Tersedia'
+                            : 'Pencarian Tidak Ditemukan',
+                        message: searchQuery.isEmpty && category == FoodCategory.all
+                            ? 'Semua makanan surplus hari ini sudah terpesan. Coba lagi besok!'
+                            : 'Tidak ada makanan yang cocok. Coba kata kunci atau kategori lain.',
+                        actionLabel: searchQuery.isEmpty &&
+                                category == FoodCategory.all
+                            ? null
+                            : 'Reset Filter',
+                        onAction: searchQuery.isEmpty &&
+                                category == FoodCategory.all
+                            ? null
+                            : () {
+                                _clearSearch();
+                                ref
+                                    .read(selectedCategoryProvider.notifier)
+                                    .state = FoodCategory.all;
+                              },
+                      );
+                    }
+
+                    return _buildFoodGrid(filtered);
+                  },
                 ),
-                data: (foods) {
-                  final filtered = _filter(foods, searchQuery, category);
-
-                  if (filtered.isEmpty) {
-                    return EmptyStateView(
-                      emoji: searchQuery.isEmpty && category == FoodCategory.all
-                          ? '🍽️'
-                          : '🔍',
-                      title: searchQuery.isEmpty && category == FoodCategory.all
-                          ? 'Belum Ada Makanan Tersedia'
-                          : 'Pencarian Tidak Ditemukan',
-                      message: searchQuery.isEmpty && category == FoodCategory.all
-                          ? 'Semua makanan surplus hari ini sudah terpesan. Coba lagi besok!'
-                          : 'Tidak ada makanan yang cocok. Coba kata kunci atau kategori lain.',
-                      actionLabel:
-                          searchQuery.isEmpty && category == FoodCategory.all ? null : 'Reset Filter',
-                      onAction: searchQuery.isEmpty && category == FoodCategory.all
-                          ? null
-                          : () {
-                              _clearSearch();
-                              ref.read(selectedCategoryProvider.notifier).state =
-                                  FoodCategory.all;
-                            },
-                    );
-                  }
-
-                  return _buildFoodGrid(filtered);
-                },
               ),
             ),
           ],
@@ -142,52 +151,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               const Spacer(),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, AppRoutes.orderStatus),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.textOnPrimary.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.receipt_long_rounded,
-                    color: AppColors.textOnPrimary,
-                    size: 18,
-                  ),
-                ),
+              CircleIconButton(
+                icon: Icons.receipt_long_rounded,
+                tooltip: 'Status Pesanan',
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.orderStatus),
               ),
               const SizedBox(width: AppSpacing.sm),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, AppRoutes.orders),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.textOnPrimary.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.history_rounded,
-                    color: AppColors.textOnPrimary,
-                    size: 18,
-                  ),
-                ),
+              CircleIconButton(
+                icon: Icons.history_rounded,
+                tooltip: 'Riwayat Pesanan',
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.orders),
               ),
               const SizedBox(width: AppSpacing.sm),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.textOnPrimary.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: AppColors.textOnPrimary,
-                    size: 18,
-                  ),
-                ),
+              CircleIconButton(
+                icon: Icons.person_rounded,
+                tooltip: 'Profil',
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
               ),
             ],
           ),
@@ -220,43 +200,54 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildSearchBar(String searchQuery) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.sm,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: AppColors.outline),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryDarker.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
+    return ResponsiveBody(
+      maxWidth: 1100,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.sm,
         ),
-        child: TextField(
-          controller: _searchController,
-          onChanged: (value) => ref.read(searchQueryProvider.notifier).state = value,
-          decoration: InputDecoration(
-            hintText: 'Cari makanan atau toko...',
-            hintStyle: AppTextStyles.body.copyWith(color: AppColors.textHint, fontSize: 13),
-            prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textHint),
-            suffixIcon: searchQuery.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textHint),
-                    onPressed: _clearSearch,
-                  )
-                : null,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 13),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(color: AppColors.outline),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDarker.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            onChanged: (value) =>
+                ref.read(searchQueryProvider.notifier).state = value,
+            decoration: InputDecoration(
+              hintText: 'Cari makanan atau toko...',
+              hintStyle: AppTextStyles.body.copyWith(
+                color: AppColors.textHint,
+                fontSize: 13,
+              ),
+              prefixIcon: const Icon(Icons.search_rounded,
+                  size: 20, color: AppColors.textHint),
+              suffixIcon: searchQuery.isNotEmpty
+                  ? IconButton(
+                      tooltip: 'Hapus pencarian',
+                      icon: const Icon(Icons.clear_rounded,
+                          size: 18, color: AppColors.textHint),
+                      onPressed: _clearSearch,
+                    )
+                  : null,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 13),
+            ),
           ),
         ),
       ),
@@ -264,44 +255,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildCategoryChips(FoodCategory selected) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-        itemCount: FoodCategory.values.length,
-        separatorBuilder: (context, index) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, index) {
-          final cat = FoodCategory.values[index];
-          final isSelected = cat == selected;
+    return ResponsiveBody(
+      maxWidth: 1100,
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          itemCount: FoodCategory.values.length,
+          separatorBuilder: (context, index) =>
+              const SizedBox(width: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final cat = FoodCategory.values[index];
+            final isSelected = cat == selected;
 
-          return GestureDetector(
-            onTap: () =>
-                ref.read(selectedCategoryProvider.notifier).state = cat,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surface,
+            return ChoiceChip(
+              label: Text(cat.label),
+              selected: isSelected,
+              showCheckmark: false,
+              onSelected: (_) =>
+                  ref.read(selectedCategoryProvider.notifier).state = cat,
+              labelStyle: AppTextStyles.base.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? AppColors.textOnPrimary
+                    : AppColors.textSecondary,
+              ),
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.primary,
+              side: BorderSide(
+                color: isSelected ? AppColors.primary : AppColors.outline,
+              ),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.pill),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.outline,
-                ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                cat.label,
-                style: AppTextStyles.base.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected
-                      ? AppColors.textOnPrimary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ),
-          );
-        },
+              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+            );
+          },
+        ),
       ),
     );
   }

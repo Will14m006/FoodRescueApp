@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/ui/app_feedback.dart';
 import '../models/order_model.dart';
 import '../providers/orders_provider.dart';
+import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
 import '../widgets/pickup_proof_dialog.dart';
+import '../widgets/responsive_body.dart';
 
 /// P7: Status Pesanan.
 ///
@@ -36,11 +39,50 @@ class OrderStatusScreen extends ConsumerWidget {
     await ref.read(ordersProvider.notifier).markCompleted(order.id);
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pesanan ditandai sudah diambil ✅'),
+      AppFeedback.success(context, 'Pesanan ditandai sudah diambil.');
+    }
+  }
+
+  /// P8: pembatalan kini minta konfirmasi + memberi umpan balik.
+  Future<void> _cancelOrder(
+    BuildContext context,
+    WidgetRef ref,
+    Order order,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
-      );
+        title: const Text('Batalkan Pesanan'),
+        content: Text(
+          'Pesanan "${order.surplusFoodName}" akan dibatalkan dan tidak bisa '
+          'dikembalikan. Lanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Tidak'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.textOnPrimary,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(ordersProvider.notifier).markCancelled(order.id);
+
+    if (context.mounted) {
+      AppFeedback.info(context, 'Pesanan dibatalkan.');
     }
   }
 
@@ -73,20 +115,10 @@ class OrderStatusScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm + 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.textOnPrimary.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: AppColors.textOnPrimary,
-                        size: 18,
-                      ),
-                    ),
+                  CircleIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Kembali',
+                    onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
@@ -108,57 +140,58 @@ class OrderStatusScreen extends ConsumerWidget {
 
             // === Daftar status pesanan ===
             Expanded(
-              child: ordersAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => EmptyStateView(
-                  emoji: '❌',
-                  title: 'Gagal Memuat',
-                  message: 'Terjadi kesalahan saat memuat pesanan.',
-                  actionLabel: 'Coba Lagi',
-                  onAction: () => ref.read(ordersProvider.notifier).refresh(),
-                ),
-                data: (orders) {
-                  if (orders.isEmpty) {
-                    return const EmptyStateView(
-                      emoji: '📦',
-                      title: 'Belum Ada Pesanan Aktif',
-                      message:
-                          'Pesanan yang kamu buat akan muncul di sini. Kamu bisa membatalkan atau menandainya sudah diambil.',
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.xl,
-                      AppSpacing.lg + 4,
-                      AppSpacing.xl,
-                      AppSpacing.xxl + 40,
-                    ),
-                    itemCount: orders.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppSpacing.md + 2),
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      final isActive = order.status == OrderStatus.pending;
-
-                      return _StatusOrderCard(
-                        order: order,
-                        // Aksi Update hanya muncul untuk pesanan yang masih pending.
-                        // Pesanan TIDAK bisa dihapus oleh user — riwayat pesanan
-                        // bersifat permanen.
-                        onComplete: isActive
-                            ? () => _confirmPickup(context, ref, order)
-                            : null,
-                        onCancel: isActive
-                            ? () => ref
-                                .read(ordersProvider.notifier)
-                                .markCancelled(order.id)
-                            : null,
+              child: ResponsiveBody(
+                maxWidth: 720,
+                child: ordersAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => EmptyStateView(
+                    emoji: '❌',
+                    title: 'Gagal Memuat',
+                    message: 'Terjadi kesalahan saat memuat pesanan.',
+                    actionLabel: 'Coba Lagi',
+                    onAction: () =>
+                        ref.read(ordersProvider.notifier).refresh(),
+                  ),
+                  data: (orders) {
+                    if (orders.isEmpty) {
+                      return const EmptyStateView(
+                        emoji: '📦',
+                        title: 'Belum Ada Pesanan Aktif',
+                        message:
+                            'Pesanan yang kamu buat akan muncul di sini. Kamu bisa membatalkan atau menandainya sudah diambil.',
                       );
-                    },
-                  );
-                },
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.lg + 4,
+                        AppSpacing.xl,
+                        AppSpacing.xxl + 40,
+                      ),
+                      itemCount: orders.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: AppSpacing.md + 2),
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+                        final isActive = order.status == OrderStatus.pending;
+
+                        return _StatusOrderCard(
+                          order: order,
+                          // Aksi Update hanya muncul untuk pesanan yang masih pending.
+                          // Pesanan TIDAK bisa dihapus oleh user — riwayat pesanan
+                          // bersifat permanen.
+                          onComplete: isActive
+                              ? () => _confirmPickup(context, ref, order)
+                              : null,
+                          onCancel: isActive
+                              ? () => _cancelOrder(context, ref, order)
+                              : null,
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -321,30 +354,29 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isDestructive
-              ? AppColors.errorLight
-              : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppRadius.md),
+    // P8: pakai tombol Material (bukan GestureDetector) supaya punya
+    // ripple, label semantik untuk screen reader, dan tinggi >= 44px.
+    return SizedBox(
+      height: 44,
+      child: TextButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 16, color: color),
+        label: Text(
+          label,
+          style: AppTextStyles.base.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: AppTextStyles.base.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
+        style: TextButton.styleFrom(
+          backgroundColor:
+              isDestructive ? AppColors.errorLight : color.withValues(alpha: 0.08),
+          foregroundColor: color,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
         ),
       ),
     );

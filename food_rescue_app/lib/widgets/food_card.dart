@@ -17,7 +17,14 @@ class FoodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // P8 aksesibilitas: satu label ringkas supaya screen reader tidak
+    // membacakan potongan-potongan teks card secara terpisah.
+    return Semantics(
+      label:
+          '${food.name} dari ${food.merchantName}, ${food.formattedDiscountPrice}, '
+          'sisa ${food.quota} porsi, ambil pukul ${food.pickupWindow}',
+      button: false,
+      child: Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -192,19 +199,25 @@ class FoodCard extends StatelessWidget {
                     const Spacer(),
                     // Tombol pesan
                     SizedBox(
-                      height: 34,
+                      height: 44,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.textOnPrimary,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppRadius.pill),
                           ),
                         ),
                         onPressed: onBook,
-                        child: const Text('Pesan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        child: const Text(
+                          'Pesan',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -213,6 +226,7 @@ class FoodCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

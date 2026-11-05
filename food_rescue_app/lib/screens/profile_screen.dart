@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/ui/app_feedback.dart';
 import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
+import '../widgets/responsive_body.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -44,6 +46,11 @@ class ProfileScreen extends ConsumerWidget {
     }
   }
 
+  /// P8: menu yang belum punya layar tetap memberi respons, tidak diam.
+  void _comingSoon(BuildContext context, String feature) {
+    AppFeedback.info(context, '$feature segera hadir di versi berikutnya.');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
@@ -79,10 +86,14 @@ class ProfileScreen extends ConsumerWidget {
                         style: AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
                       ),
                       const Spacer(),
-                      const Icon(
-                        Icons.notifications_rounded,
-                        color: AppColors.textOnPrimary,
-                        size: 22,
+                      IconButton(
+                        tooltip: 'Notifikasi',
+                        onPressed: () => _comingSoon(context, 'Notifikasi'),
+                        icon: const Icon(
+                          Icons.notifications_rounded,
+                          color: AppColors.textOnPrimary,
+                          size: 22,
+                        ),
                       ),
                     ],
                   ),
@@ -123,27 +134,38 @@ class ProfileScreen extends ConsumerWidget {
             ),
 
             // === Statistik ===
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg + 4,
-                AppSpacing.xl,
-                AppSpacing.md + 2,
-              ),
-              child: Row(
-                children: [
-                  _StatCard(emoji: '🍽️', value: '12', label: 'Makanan Diselamatkan'),
-                  const SizedBox(width: AppSpacing.md + 2),
-                  _StatCard(emoji: '💵', value: 'Rp 180rb', label: 'Total Hemat'),
-                ],
+            ResponsiveBody(
+              maxWidth: 720,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg + 4,
+                  AppSpacing.xl,
+                  AppSpacing.md + 2,
+                ),
+                child: Row(
+                  children: [
+                    _StatCard(emoji: '🍽️', value: '12', label: 'Makanan Diselamatkan'),
+                    const SizedBox(width: AppSpacing.md + 2),
+                    _StatCard(emoji: '💵', value: 'Rp 180rb', label: 'Total Hemat'),
+                  ],
+                ),
               ),
             ),
 
             // === Menu ===
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                child: Column(
+              // P8: ListView (bukan Column + Spacer) supaya layar kecil tidak
+              // overflow dan menu tetap bisa di-scroll.
+              child: ResponsiveBody(
+                maxWidth: 720,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    0,
+                    AppSpacing.xl,
+                    AppSpacing.xxl,
+                  ),
                   children: [
                     _MenuTile(
                       icon: Icons.delivery_dining_rounded,
@@ -160,28 +182,28 @@ class ProfileScreen extends ConsumerWidget {
                           Navigator.pushNamed(context, AppRoutes.orders),
                     ),
                     _MenuTile(
-                      icon:Icons.location_on_rounded,
+                      icon: Icons.location_on_rounded,
                       title: 'Alamat',
                       subtitle: 'Atur alamat pengambilan',
-                      onTap: () {},
+                      onTap: () => _comingSoon(context, 'Pengaturan alamat'),
                     ),
                     _MenuTile(
                       icon: Icons.notifications_rounded,
                       title: 'Notifikasi',
                       subtitle: 'Atur preferensi notifikasi',
-                      onTap: () {},
+                      onTap: () => _comingSoon(context, 'Pengaturan notifikasi'),
                     ),
                     _MenuTile(
                       icon: Icons.help_outline_rounded,
                       title: 'Bantuan',
                       subtitle: 'Pusat bantuan & FAQ',
-                      onTap: () {},
+                      onTap: () => _comingSoon(context, 'Pusat bantuan'),
                     ),
                     _MenuTile(
                       icon: Icons.info_outline_rounded,
                       title: 'Tentang Aplikasi',
                       subtitle: 'Versi 1.0.0',
-                      onTap: () {},
+                      onTap: () => _comingSoon(context, 'Halaman tentang'),
                     ),
                     _MenuTile(
                       icon: Icons.logout_rounded,
@@ -189,12 +211,12 @@ class ProfileScreen extends ConsumerWidget {
                       subtitle: 'Logout dari akun ini',
                       onTap: () => _logout(context, ref),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
                       'Food Rescue App • PBL Pemrograman Mobile',
+                      textAlign: TextAlign.center,
                       style: AppTextStyles.caption,
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
                   ],
                 ),
               ),
@@ -261,46 +283,53 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // P8: Material + InkWell = ripple feedback, target sentuh penuh,
+    // dan otomatis terbaca sebagai tombol oleh screen reader.
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm + 2),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md + 2),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: AppColors.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.all(AppSpacing.md + 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, size: 19, color: AppColors.primaryDark),
                 ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 19, color: AppColors.primaryDark),
-              ),
-              const SizedBox(width: AppSpacing.md + 2),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: AppTextStyles.bodyStrong),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: AppTextStyles.caption),
-                  ],
+                const SizedBox(width: AppSpacing.md + 2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: AppTextStyles.bodyStrong),
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: AppTextStyles.caption),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textHint,
-                size: 22,
-              ),
-            ],
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 22,
+                ),
+              ],
+            ),
           ),
         ),
       ),
