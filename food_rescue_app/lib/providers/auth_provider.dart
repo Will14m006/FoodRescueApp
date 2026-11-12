@@ -26,6 +26,11 @@ class AuthNotifier extends AsyncNotifier<AuthUser?> {
   void logout() {
     state = const AsyncData(null);
   }
+
+  /// P9: dipakai setelah update profil supaya UI langsung menampilkan data baru.
+  void replaceUser(AuthUser user) {
+    state = AsyncData(user);
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

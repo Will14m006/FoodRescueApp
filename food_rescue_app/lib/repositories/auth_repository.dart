@@ -1,6 +1,6 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
+
+import '../core/network/api_client.dart';
 
 /// Data user yang sedang login.
 class AuthUser {
@@ -18,6 +18,17 @@ class AuthUser {
     this.image,
   });
 
+  /// Nama lengkap dari field `firstName` + `lastName`.
+  ///
+  /// P9: dipakai bersama oleh login dan update profil supaya aturan
+  /// penyusunan nama tidak ditulis dua kali.
+  static String fullName(Map<String, dynamic> json) {
+    final first = json['firstName'] as String? ?? '';
+    final last = json['lastName'] as String? ?? '';
+    final name = '$first $last'.trim();
+    return name.isEmpty ? (json['username'] as String? ?? 'Pengguna') : name;
+  }
+
   /// Validasi + mapping dari JSON `/auth/login`.
   ///
   /// Melempar [AuthException] kalau kontrak respons tidak sesuai.
@@ -34,13 +45,9 @@ class AuthUser {
       throw const AuthException('Email user tidak diterima.');
     }
 
-    final first = json['firstName'] as String? ?? '';
-    final last = json['lastName'] as String? ?? '';
-    final name = '$first $last'.trim();
-
     return AuthUser(
       id: id,
-      name: name.isEmpty ? (json['username'] as String? ?? 'Pengguna') : name,
+      name: fullName(json),
       email: email,
       image: json['image'] as String?,
       token: token,
@@ -64,14 +71,13 @@ abstract class AuthRepository {
 ///
 /// POST https://dummyjson.com/auth/login
 /// - 200 + token   -> [AuthUser]
-/// - 400           -> [AuthException] "Username atau password salah"
+/// - 400/401       -> [AuthException] "Username atau password salah"
 /// - jaringan/JSON -> [AuthException]
 class ApiAuthRepository implements AuthRepository {
-  ApiAuthRepository({http.Client? client, this.timeout = const Duration(seconds: 12)})
-      : _client = client ?? http.Client();
+  ApiAuthRepository({http.Client? client, Duration timeout = const Duration(seconds: 12)})
+      : _api = ApiClient(client: client, timeout: timeout);
 
-  final http.Client _client;
-  final Duration timeout;
+  final ApiClient _api;
 
   static const endpoint = 'https://dummyjson.com/auth/login';
 
@@ -80,45 +86,24 @@ class ApiAuthRepository implements AuthRepository {
     required String username,
     required String password,
   }) async {
-    final http.Response response;
-    try {
-      response = await _client
-          .post(
-            Uri.parse(endpoint),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-              'expiresInMins': 60,
-            }),
-          )
-          .timeout(timeout);
-    } on Exception {
-      throw const AuthException(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
-      );
-    }
+    final json = await _api.sendJson(
+      method: 'POST',
+      endpoint: endpoint,
+      body: {
+        'username': username,
+        'password': password,
+        'expiresInMins': 60,
+      },
+      isSuccess: (status) => status == 200,
+      onError: (message, statusCode) {
+        if (statusCode == 400 || statusCode == 401) {
+          return const AuthException('Username atau password salah.');
+        }
+        if (statusCode == null) return AuthException(message);
+        return AuthException('Login gagal ($message). Coba lagi.');
+      },
+    );
 
-    if (response.statusCode == 400 || response.statusCode == 401) {
-      throw const AuthException('Username atau password salah.');
-    }
-    if (response.statusCode != 200) {
-      throw AuthException(
-        'Login gagal (error ${response.statusCode}). Coba lagi.',
-      );
-    }
-
-    final dynamic decoded;
-    try {
-      decoded = jsonDecode(response.body);
-    } on FormatException {
-      throw const AuthException('Respons server tidak dapat dibaca.');
-    }
-
-    if (decoded is! Map<String, dynamic>) {
-      throw const AuthException('Format respons server tidak sesuai.');
-    }
-
-    return AuthUser.fromJson(decoded);
+    return AuthUser.fromJson(json);
   }
 }

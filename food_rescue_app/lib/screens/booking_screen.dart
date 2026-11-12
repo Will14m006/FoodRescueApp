@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/utils/formatters.dart';
+import '../core/validation/validators.dart';
 import '../models/order_model.dart';
 import '../models/surplus_food_model.dart';
 import '../providers/booking_provider.dart';
@@ -43,30 +45,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     super.dispose();
   }
 
-  String? _validateName(String? value) {
-    // Nama pemesan bebas: tidak ada batas minimal karakter.
-    if (value == null || value.trim().isEmpty) {
-      return 'Nama pemesan wajib diisi.';
-    }
-    return null;
-  }
+  String? _validateName(String? value) =>
+      Validators.required(value, 'Nama pemesan');
 
-  String? _validateQuantity(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Jumlah pesanan wajib diisi.';
-    }
-    final qty = int.tryParse(value.trim());
-    if (qty == null) {
-      return 'Jumlah harus berupa angka.';
-    }
-    if (qty < 1) {
-      return 'Minimal memesan 1 porsi.';
-    }
-    if (qty > food.quota) {
-      return 'Melebihi kuota yang tersedia (maks. ${food.quota}).';
-    }
-    return null;
-  }
+  String? _validateQuantity(String? value) => Validators.quantity(
+        value,
+        min: 1,
+        max: food.quota,
+        label: 'Jumlah pesanan',
+      );
 
   Future<void> _submit() async {
     // Validasi form: jika ada field gagal validasi, langsung stop & tampilkan error.
@@ -100,7 +87,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             _ConfirmRow(label: 'Atas nama', value: _nameController.text.trim()),
             _ConfirmRow(
               label: 'Total',
-              value: 'Rp ${total.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')}',
+              value: Formatters.rupiah(total),
               isBold: true,
             ),
           ],
@@ -225,7 +212,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               _DetailRow(label: 'Jumlah', value: '${order.quantity} porsi'),
               _DetailRow(
                 label: 'Total',
-                value: 'Rp ${order.totalPrice}',
+                value: Formatters.rupiah(order.totalPrice),
                 valueColor: AppColors.primary,
                 isBold: true,
               ),

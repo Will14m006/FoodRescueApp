@@ -1,3 +1,5 @@
+import '../core/utils/formatters.dart';
+
 /// Kategori makanan surplus untuk filter di katalog.
 enum FoodCategory {
   all('Semua'),
@@ -58,19 +60,9 @@ class SurplusFood {
     return ((1 - discountPrice / originalPrice) * 100).round();
   }
 
-  String get formattedOriginalPrice => _rupiah(originalPrice);
+  String get formattedOriginalPrice => Formatters.rupiah(originalPrice);
 
-  String get formattedDiscountPrice => _rupiah(discountPrice);
-
-  String _rupiah(int value) {
-    final buffer = StringBuffer();
-    final chars = value.toString().split('').reversed.toList();
-    for (var i = 0; i < chars.length; i++) {
-      if (i > 0 && i % 3 == 0) buffer.write('.');
-      buffer.write(chars[i]);
-    }
-    return 'Rp ${buffer.toString().split('').reversed.join()}';
-  }
+  String get formattedDiscountPrice => Formatters.rupiah(discountPrice);
 
   /// Mapping dari JSON API (dummyjson `/products/category/groceries`).
   ///

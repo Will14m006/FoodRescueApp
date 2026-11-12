@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_colors.dart';
@@ -9,6 +9,7 @@ import '../models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
+import '../widgets/order_card.dart';
 import '../widgets/pickup_proof_dialog.dart';
 import '../widgets/responsive_body.dart';
 
@@ -23,69 +24,6 @@ import '../widgets/responsive_body.dart';
 class OrderStatusScreen extends ConsumerWidget {
   const OrderStatusScreen({super.key});
 
-  /// Advanced feature #3 (Kamera): minta bukti foto sebelum menandai pickup.
-  Future<void> _confirmPickup(
-    BuildContext context,
-    WidgetRef ref,
-    Order order,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => const PickupProofDialog(),
-    );
-
-    if (confirmed != true) return;
-
-    await ref.read(ordersProvider.notifier).markCompleted(order.id);
-
-    if (context.mounted) {
-      AppFeedback.success(context, 'Pesanan ditandai sudah diambil.');
-    }
-  }
-
-  /// P8: pembatalan kini minta konfirmasi + memberi umpan balik.
-  Future<void> _cancelOrder(
-    BuildContext context,
-    WidgetRef ref,
-    Order order,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text('Batalkan Pesanan'),
-        content: Text(
-          'Pesanan "${order.surplusFoodName}" akan dibatalkan dan tidak bisa '
-          'dikembalikan. Lanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Tidak'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: AppColors.textOnPrimary,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Ya, Batalkan'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    await ref.read(ordersProvider.notifier).markCancelled(order.id);
-
-    if (context.mounted) {
-      AppFeedback.info(context, 'Pesanan dibatalkan.');
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
@@ -95,50 +33,7 @@ class OrderStatusScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // === Header ===
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg + 4,
-                AppSpacing.xl,
-                AppSpacing.xxl + 4,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
-                ),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    tooltip: 'Kembali',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Status Pesanan',
-                    style: AppTextStyles.headline
-                        .copyWith(color: AppColors.textOnPrimary),
-                  ),
-                  const SizedBox(height: AppSpacing.xs + 2),
-                  Text(
-                    'Pantau & kelola pesanan kamu di sini',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textOnPrimary.withValues(alpha: 0.9),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // === Daftar status pesanan ===
+            const _StatusHeader(),
             Expanded(
               child: ResponsiveBody(
                 maxWidth: 720,
@@ -149,8 +44,7 @@ class OrderStatusScreen extends ConsumerWidget {
                     title: 'Gagal Memuat',
                     message: 'Terjadi kesalahan saat memuat pesanan.',
                     actionLabel: 'Coba Lagi',
-                    onAction: () =>
-                        ref.read(ordersProvider.notifier).refresh(),
+                    onAction: () => ref.read(ordersProvider.notifier).refresh(),
                   ),
                   data: (orders) {
                     if (orders.isEmpty) {
@@ -174,18 +68,14 @@ class OrderStatusScreen extends ConsumerWidget {
                           const SizedBox(height: AppSpacing.md + 2),
                       itemBuilder: (context, index) {
                         final order = orders[index];
+                        // Aksi Update hanya untuk pesanan pending. Pesanan
+                        // TIDAK bisa dihapus user — riwayat permanen.
                         final isActive = order.status == OrderStatus.pending;
 
-                        return _StatusOrderCard(
+                        return OrderCard(
                           order: order,
-                          // Aksi Update hanya muncul untuk pesanan yang masih pending.
-                          // Pesanan TIDAK bisa dihapus oleh user — riwayat pesanan
-                          // bersifat permanen.
-                          onComplete: isActive
-                              ? () => _confirmPickup(context, ref, order)
-                              : null,
-                          onCancel: isActive
-                              ? () => _cancelOrder(context, ref, order)
+                          actions: isActive
+                              ? _OrderActions(order: order)
                               : null,
                         );
                       },
@@ -201,139 +91,147 @@ class OrderStatusScreen extends ConsumerWidget {
   }
 }
 
-class _StatusOrderCard extends StatelessWidget {
-  final Order order;
-  final VoidCallback? onComplete;
-  final VoidCallback? onCancel;
-
-  const _StatusOrderCard({
-    required this.order,
-    required this.onComplete,
-    required this.onCancel,
-  });
-
-  Color get _statusColor => Color(order.status.colorValue);
+class _StatusHeader extends StatelessWidget {
+  const _StatusHeader();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.outline),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.lg + 4,
+        AppSpacing.xl,
+        AppSpacing.xxl + 4,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md + 2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    order.surplusFoodName,
-                    style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Text(
-                    order.status.label,
-                    style: AppTextStyles.base.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: _statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Text(
-              'Atas nama: ${order.buyerName}  •  ${order.quantity} porsi',
-              style: AppTextStyles.caption,
-            ),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Row(
-              children: [
-                Text(
-                  'Total: Rp ${order.totalPrice}',
-                  style: AppTextStyles.bodyStrong.copyWith(
-                    color: AppColors.primary,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md + 2),
-                Flexible(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      order.pickupCode,
-                      style: AppTextStyles.base.copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primaryDark,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Aksi Update: hanya untuk pesanan yang masih pending.
-            if (onComplete != null || onCancel != null)
-              Row(
-                children: [
-                  if (onComplete != null)
-                    Expanded(
-                      child: _ActionButton(
-                        icon: Icons.check_circle_outline_rounded,
-                        label: 'Sudah Pickup',
-                        color: AppColors.primary,
-                        onTap: onComplete!,
-                      ),
-                    ),
-                  if (onComplete != null && onCancel != null)
-                    const SizedBox(width: AppSpacing.sm),
-                  if (onCancel != null)
-                    Expanded(
-                      child: _ActionButton(
-                        icon: Icons.cancel_outlined,
-                        label: 'Batalkan',
-                        color: AppColors.error,
-                        onTap: onCancel!,
-                        isDestructive: true,
-                      ),
-                    ),
-                ],
-              )
-            else
-              Text(
-                'Pesanan ini sudah ${order.status == OrderStatus.completed ? 'diambil' : 'dibatalkan'} — status tidak bisa diubah lagi.',
-                style: AppTextStyles.caption.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: AppColors.textHint,
-                ),
-              ),
-          ],
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.gradientStart, AppColors.gradientEnd],
         ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'Kembali',
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Status Pesanan',
+            style: AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
+          ),
+          const SizedBox(height: AppSpacing.xs + 2),
+          Text(
+            'Pantau & kelola pesanan kamu di sini',
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.textOnPrimary.withValues(alpha: 0.9),
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
+  }
+}
+
+/// P9: aksi Update dipisah jadi widget sendiri, terpisah dari card read-only.
+class _OrderActions extends ConsumerWidget {
+  final Order order;
+
+  const _OrderActions({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ActionButton(
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Sudah Pickup',
+            color: AppColors.primary,
+            onTap: () => _confirmPickup(context, ref, order),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _ActionButton(
+            icon: Icons.cancel_outlined,
+            label: 'Batalkan',
+            color: AppColors.error,
+            onTap: () => _cancelOrder(context, ref, order),
+            isDestructive: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// P7 Advanced Feature #3 (Kamera): bukti foto sebelum menandai pickup.
+Future<void> _confirmPickup(
+  BuildContext context,
+  WidgetRef ref,
+  Order order,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => const PickupProofDialog(),
+  );
+
+  if (confirmed != true) return;
+
+  await ref.read(ordersProvider.notifier).markCompleted(order.id);
+
+  if (context.mounted) {
+    AppFeedback.success(context, 'Pesanan ditandai sudah diambil.');
+  }
+}
+
+/// P8: pembatalan minta konfirmasi + memberi umpan balik.
+Future<void> _cancelOrder(
+  BuildContext context,
+  WidgetRef ref,
+  Order order,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      title: const Text('Batalkan Pesanan'),
+      content: Text(
+        'Pesanan "${order.surplusFoodName}" akan dibatalkan dan tidak bisa '
+        'dikembalikan. Lanjutkan?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Tidak'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.error,
+            foregroundColor: AppColors.textOnPrimary,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Ya, Batalkan'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  await ref.read(ordersProvider.notifier).markCancelled(order.id);
+
+  if (context.mounted) {
+    AppFeedback.info(context, 'Pesanan dibatalkan.');
   }
 }
 
@@ -354,8 +252,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // P8: pakai tombol Material (bukan GestureDetector) supaya punya
-    // ripple, label semantik untuk screen reader, dan tinggi >= 44px.
+    // P8: tombol Material supaya ada ripple, label semantik, tinggi >= 44px.
     return SizedBox(
       height: 44,
       child: TextButton.icon(
@@ -370,8 +267,9 @@ class _ActionButton extends StatelessWidget {
           ),
         ),
         style: TextButton.styleFrom(
-          backgroundColor:
-              isDestructive ? AppColors.errorLight : color.withValues(alpha: 0.08),
+          backgroundColor: isDestructive
+              ? AppColors.errorLight
+              : color.withValues(alpha: 0.08),
           foregroundColor: color,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(

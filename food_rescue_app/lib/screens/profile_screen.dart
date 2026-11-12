@@ -168,6 +168,13 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   children: [
                     _MenuTile(
+                      icon: Icons.edit_rounded,
+                      title: 'Edit Profil',
+                      subtitle: 'Ubah nama & email kamu',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.profileEdit),
+                    ),
+                    _MenuTile(
                       icon: Icons.delivery_dining_rounded,
                       title: 'Status Pesanan',
                       subtitle: 'Pantau & kelola pesanan aktif',

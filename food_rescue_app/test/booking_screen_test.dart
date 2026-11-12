@@ -97,7 +97,7 @@ void main() {
     await tester.tap(find.text('Pesan Sekarang'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Melebihi kuota yang tersedia (maks. 4).'), findsOneWidget);
+    expect(find.text('Melebihi batas maksimal (4).'), findsOneWidget);
   });
 
   testWidgets('state loading: tombol non-aktif & berputar saat submit (anti double-tap)',

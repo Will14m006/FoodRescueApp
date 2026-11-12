@@ -9,6 +9,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/order_status_screen.dart';
+import 'screens/profile_form_screen.dart';
 import 'screens/profile_screen.dart';
 
 void main() {
@@ -34,6 +35,7 @@ class FoodRescueApp extends StatelessWidget {
           return BookingScreen(food: food);
         },
         AppRoutes.profile: (context) => const ProfileScreen(),
+        AppRoutes.profileEdit: (context) => const ProfileFormScreen(),
         AppRoutes.orders: (context) => const OrdersScreen(),
         AppRoutes.orderStatus: (context) => const OrderStatusScreen(),
       },

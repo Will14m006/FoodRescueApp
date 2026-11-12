@@ -33,6 +33,9 @@ Dokumentasi P7 ada di [docs/P7_MVP_ADVANCED.md](./docs/P7_MVP_ADVANCED.md).
 Dokumentasi P8 (layout adaptif, keyboard-safe, aksesibilitas, feedback) ada di
 [docs/P8_UX_RESPONSIVE.md](./docs/P8_UX_RESPONSIVE.md) beserta screenshot di
 [docs/screenshots](./docs/screenshots).
+Dokumentasi P9 (test & refactor — hapus duplikasi code, pemisahan tanggung
+jawab `ProfileForm` / `Validators` / `ProfileRepository`) ada di
+[docs/P9_REFACTOR.md](./docs/P9_REFACTOR.md).
 
 ## 📦 Instalasi & Menjalankan
 
@@ -61,3 +64,4 @@ flutter test
 | P6 | Integrasi API & Vertical Slice (http + 15 unit test) | ✅ Selesai |
 | P7 | MVP lengkap + 3 advanced feature (Autentikasi, Lokasi, Kamera) | ✅ Selesai |
 | P8 | Layout adaptif, keyboard-safe, accessibility, feedback aksi | ✅ Selesai |
+| P9 | Test & refactor: hapus duplikasi code + pisah `ProfileForm`/`Validators`/`ProfileRepository` (70 test) | ✅ Selesai |

@@ -138,8 +138,14 @@ food_rescue_app/
 │   │   │   ├── app_spacing.dart
 │   │   │   ├── app_text_styles.dart
 │   │   │   └── app_theme.dart
-│   │   └── ui/
-│   │       └── app_feedback.dart      # P8: snackbar sukses/error/info
+│   │   ├── ui/
+│   │   │   └── app_feedback.dart      # P8: snackbar sukses/error/info
+│   │   ├── network/
+│   │   │   └── api_client.dart        # P9: HTTP POST/PUT/PATCH + decode, dipakai bersama
+│   │   ├── utils/
+│   │   │   └── formatters.dart        # P9: format Rupiah & tanggal (satu sumber)
+│   │   └── validation/
+│   │       └── validators.dart        # P9: aturan input (required/minLength/email/quantity)
 │   ├── routes/                        # Definisi named routes
 │   │   └── app_routes.dart
 │   ├── screens/                       # Lapisan UI (widget)
@@ -148,7 +154,8 @@ food_rescue_app/
 │   │   ├── booking_screen.dart        # Fitur 2: Booking / Pemesanan
 │   │   ├── order_status_screen.dart   # P5: Status Pesanan (aksi Update)
 │   │   ├── orders_screen.dart         # P5: Riwayat Pesanan (read-only)
-│   │   └── profile_screen.dart
+│   │   ├── profile_screen.dart
+│   │   └── profile_form_screen.dart   # P9: ProfileForm (input + status UI saja)
 │   ├── widgets/                       # Reusable component
 │   │   ├── primary_button.dart
 │   │   ├── app_text_field.dart
@@ -160,6 +167,7 @@ food_rescue_app/
 │   │   ├── pickup_proof_dialog.dart   # P7: UI kamera (advanced #3)
 │   │   ├── responsive_body.dart       # P8: layout adaptif + breakpoints
 │   │   └── circle_icon_button.dart    # P8: tombol ikon aksesibel (48px + tooltip)
+│   │   └── order_card.dart            # P9: card pesanan + StatusBadge (dipakai 2 layar)
 │   ├── models/                        # Model data
 │   │   ├── surplus_food_model.dart
 │   │   └── order_model.dart
@@ -169,11 +177,13 @@ food_rescue_app/
 │   │   ├── camera_provider.dart       # P7: kamera + batal (advanced #3)
 │   │   ├── catalog_provider.dart
 │   │   ├── booking_provider.dart
-│   │   └── orders_provider.dart       # P5: CRUD riwayat pesanan
+│   │   ├── orders_provider.dart       # P5: CRUD riwayat pesanan
+│   │   └── profile_provider.dart      # P9: state update profil (AsyncNotifier)
 │   └── repositories/                  # Sumber data (API + local storage)
 │       ├── auth_repository.dart         # P7: ApiAuthRepository (POST login)
 │       ├── surplus_food_repository.dart # P6: ApiSurplusFoodRepository (GET)
 │       ├── order_repository.dart       # P6: ApiOrderRepository (POST)
+│       ├── profile_repository.dart     # P9: ApiProfileRepository (PUT /users/{id})
 │       └── order_local_repository.dart # P5: localStorage/SharedPreferences
 └── test/                              # Widget test + unit test
     ├── widget_test.dart
@@ -183,6 +193,7 @@ food_rescue_app/
     ├── api_integration_test.dart       # P6: 15 unit test API & model
     ├── advanced_features_test.dart     # P7: 10 test auth/lokasi/kamera
     ├── p8_ux_test.dart                 # P8: 6 test layout/keyboard/a11y/feedback
+    ├── p9_refactor_test.dart           # P9: 12 test validators/formatters/profile
     └── orders_persistence_test.dart   # P5: persistence test
 ```
 
@@ -200,8 +211,11 @@ food_rescue_app/
 | `GET` | `https://dummyjson.com/products/category/groceries?limit=100` | Memuat katalog surplus |
 | `POST` | `https://dummyjson.com/carts/add` | Menyimpan pesanan ke backend |
 | `POST` | `https://dummyjson.com/auth/login` | Login user (advanced feature #1) |
+| `PUT` | `https://dummyjson.com/users/{id}` | Simpan perubahan profil (P9) |
 
 Semua endpoint mendukung CORS sehingga aman dipanggil dari Flutter web.
+P9: ketiga request tulis (`POST`/`PUT`) berbagi `ApiClient.sendJson`
+(`lib/core/network/api_client.dart`) — tidak ada lagi blok HTTP yang disalin.
 Smoke test manual: `dart run tool/api_smoke.dart`, `dart run tool/p7_smoke.dart`.
 
 ## 10. State Management Architecture (Riverpod)
