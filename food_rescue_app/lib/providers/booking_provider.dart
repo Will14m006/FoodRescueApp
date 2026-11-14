@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/order_model.dart';
 import '../repositories/order_repository.dart';
+import 'auth_provider.dart';
 
 /// P6: Pesanan sekarang disimpan ke backend sungguhan.
 /// Override provider ini di widget test dengan [FakeOrderRepository].
@@ -18,6 +19,8 @@ class BookingNotifier extends AsyncNotifier<Order?> {
   @override
   Order? build() => null;
 
+  /// P10 fix #4: booking wajib punya user login, dan id user diteruskan ke
+  /// repository (dulu hard-coded `userId: 1`).
   Future<void> submit({
     required String buyerName,
     required String surplusFoodId,
@@ -25,6 +28,15 @@ class BookingNotifier extends AsyncNotifier<Order?> {
     required int quantity,
     required int unitPrice,
   }) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      state = AsyncError(
+        const BookingException('Kamu harus login dulu untuk memesan.'),
+        StackTrace.current,
+      );
+      return;
+    }
+
     state = const AsyncLoading<Order?>();
 
     state = await AsyncValue.guard(() {
@@ -34,6 +46,7 @@ class BookingNotifier extends AsyncNotifier<Order?> {
             surplusFoodName: surplusFoodName,
             quantity: quantity,
             unitPrice: unitPrice,
+            userId: user.id,
           );
     });
   }
@@ -43,6 +56,14 @@ class BookingNotifier extends AsyncNotifier<Order?> {
   void reset() {
     state = const AsyncData<Order?>(null);
   }
+}
+
+class BookingException implements Exception {
+  const BookingException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 final bookingProvider = AsyncNotifierProvider<BookingNotifier, Order?>(BookingNotifier.new);

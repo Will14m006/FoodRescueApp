@@ -58,6 +58,13 @@ class Order {
   final OrderStatus status;
   final DateTime createdAt;
 
+  /// P10 fix #3: bukti pengambilan (foto kamera) disimpan sebagai base64
+  /// supaya tetap ada setelah aplikasi ditutup. Null = belum ada bukti.
+  final String? proofPhoto;
+
+  /// P10 fix #4: pemilik pesanan. Dipakai untuk memisahkan riwayat per akun.
+  final int? userId;
+
   const Order({
     required this.id,
     required this.pickupCode,
@@ -67,7 +74,28 @@ class Order {
     required this.totalPrice,
     required this.status,
     required this.createdAt,
+    this.proofPhoto,
+    this.userId,
   });
+
+  Order copyWith({
+    OrderStatus? status,
+    String? proofPhoto,
+    int? userId,
+  }) {
+    return Order(
+      id: id,
+      pickupCode: pickupCode,
+      buyerName: buyerName,
+      surplusFoodName: surplusFoodName,
+      quantity: quantity,
+      totalPrice: totalPrice,
+      status: status ?? this.status,
+      createdAt: createdAt,
+      proofPhoto: proofPhoto ?? this.proofPhoto,
+      userId: userId ?? this.userId,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -79,7 +107,9 @@ class Order {
         other.quantity == quantity &&
         other.totalPrice == totalPrice &&
         other.status == status &&
-        other.createdAt == createdAt;
+        other.createdAt == createdAt &&
+        other.proofPhoto == proofPhoto &&
+        other.userId == userId;
   }
 
   @override
@@ -92,6 +122,8 @@ class Order {
         totalPrice,
         status,
         createdAt,
+        proofPhoto,
+        userId,
       );
 
   /// Serialisasi ke JSON supaya bisa disimpan di local storage.
@@ -105,10 +137,15 @@ class Order {
       'totalPrice': totalPrice,
       'status': status.jsonValue,
       'createdAt': createdAt.toIso8601String(),
+      if (proofPhoto != null) 'proofPhoto': proofPhoto,
+      if (userId != null) 'userId': userId,
     };
   }
 
   /// Deserialisasi dari local storage.
+  ///
+  /// Field baru (`proofPhoto`, `userId`) opsional supaya data lama yang sudah
+  /// tersimpan di perangkat pengguna tetap bisa dibaca.
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['id'] as String,
@@ -119,6 +156,8 @@ class Order {
       totalPrice: json['totalPrice'] as int,
       status: OrderStatusX.fromJsonValue(json['status'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      proofPhoto: json['proofPhoto'] as String?,
+      userId: json['userId'] as int?,
     );
   }
 }

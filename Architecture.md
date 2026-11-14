@@ -143,7 +143,8 @@ food_rescue_app/
 │   │   ├── network/
 │   │   │   └── api_client.dart        # P9: HTTP POST/PUT/PATCH + decode, dipakai bersama
 │   │   ├── utils/
-│   │   │   └── formatters.dart        # P9: format Rupiah & tanggal (satu sumber)
+│   │   │   ├── formatters.dart        # P9: format Rupiah & tanggal (satu sumber)
+│   │   │   └── app_log.dart           # P10: log runtime (dart:developer)
 │   │   └── validation/
 │   │       └── validators.dart        # P9: aturan input (required/minLength/email/quantity)
 │   ├── routes/                        # Definisi named routes
@@ -194,6 +195,7 @@ food_rescue_app/
     ├── advanced_features_test.dart     # P7: 10 test auth/lokasi/kamera
     ├── p8_ux_test.dart                 # P8: 6 test layout/keyboard/a11y/feedback
     ├── p9_refactor_test.dart           # P9: 12 test validators/formatters/profile
+    ├── p10_bugfix_test.dart            # P10: 14 test regresi 5 issue review
     └── orders_persistence_test.dart   # P5: persistence test
 ```
 
@@ -270,9 +272,46 @@ Widget test meng-override ketiga repository dengan fake karena plugin butuh plat
   dialog konfirmasi untuk aksi destruktif, spinner + tombol disabled untuk
   proses async. Tidak ada handler kosong (`onTap: () {}`).
 
-## 12. Deliverables
+## 12. Runtime Logging (P10)
+
+Log terpusat di `lib/core/utils/app_log.dart` memakai `dart:developer` (tanpa
+package tambahan), sehingga muncul di console `flutter run`, DevTools, dan
+`adb logcat -s flutter` pada build release.
+
+| Titik | Yang dicatat |
+|---|---|
+| `AppLog.info` | start aplikasi, `METHOD endpoint`, status HTTP sukses |
+| `AppLog.warn` | respons non-2xx beserta status code |
+| `AppLog.error` | gagal jaringan, body bukan JSON, error tak tertangani |
+| `FlutterError.onError` | error build/layout widget |
+| `PlatformDispatcher.instance.onError` | error platform di build release |
+| `runZonedGuarded` | error async di luar zona Flutter |
+| `AppRouteLogger` | `push` / `pop` / `replace` antar halaman |
+
+## 13. Penyimpanan Pesanan (P10)
+
+Pesanan disimpan per akun, bukan per perangkat:
+
+```dart
+OrderLocalRepositoryImpl.keyFor(int? userId)
+// null   -> 'food_rescue_orders_guest'
+// 1      -> 'food_rescue_orders_u1'
+```
+
+- `orderLocalRepositoryProvider` dan `OrdersNotifier.build()` sama-sama
+  `watch(currentUserProvider)`, jadi logout/login memuat ulang riwayat akun
+  yang baru.
+- Data versi lama di key global `food_rescue_orders` dimigrasikan sekali ke
+  akun yang sedang login, lalu key lama dihapus.
+- Bukti pengambilan (`Order.proofPhoto`) disimpan sebagai base64 di storage
+  yang sama — tidak butuh `path_provider` atau file system.
+
+## 14. Deliverables
 * Source code Flutter yang bisa dijalankan (`flutter run`).
-* Widget test untuk setiap state utama (`flutter test` — 58 test lulus).
+* Widget test untuk setiap state utama (`flutter test` — 84 test lulus).
 * Dokumentasi P4, P6 (`docs/P6_API_INTEGRATION.md`), P7 (`docs/P7_MVP_ADVANCED.md`),
-  P8 (`docs/P8_UX_RESPONSIVE.md`) + screenshot di `docs/screenshots/`.
+  P8 (`docs/P8_UX_RESPONSIVE.md`), P9 (`docs/P9_REFACTOR.md`), P10
+  (`docs/P10_BUGFIX.md`, `docs/P10_ISSUES_SPACE_SYNC.md`) + screenshot di
+  `docs/screenshots/`.
+* Runtime logging (`AppLog`) yang aktif di debug maupun release.
 * README dengan instruksi instalasi dan menjalankan aplikasi.

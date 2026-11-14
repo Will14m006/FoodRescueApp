@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../utils/app_log.dart';
+
 /// P9: helper HTTP bersama untuk repository yang memanggil API JSON.
 ///
 /// Sebelumnya blok `try { post().timeout() } on Exception`, pengecekan status,
@@ -35,13 +37,16 @@ class ApiClient {
       final payload = jsonEncode(body);
       final duration = timeout;
 
+      AppLog.info('$method $endpoint');
+
       response = await switch (method) {
         'PUT' => _client.put(uri, headers: headers, body: payload).timeout(duration),
         'PATCH' =>
           _client.patch(uri, headers: headers, body: payload).timeout(duration),
         _ => _client.post(uri, headers: headers, body: payload).timeout(duration),
       };
-    } on Exception {
+    } on Exception catch (e) {
+      AppLog.error('$method $endpoint gagal (jaringan)', e);
       throw onError(
         'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
         null,
@@ -49,20 +54,24 @@ class ApiClient {
     }
 
     if (!ok(response.statusCode)) {
+      AppLog.warn('$method $endpoint -> HTTP ${response.statusCode}');
       throw onError('error ${response.statusCode}', response.statusCode);
     }
 
     final dynamic decoded;
     try {
       decoded = jsonDecode(response.body);
-    } on FormatException {
+    } on FormatException catch (e) {
+      AppLog.error('$method $endpoint -> body bukan JSON', e);
       throw onError('Respons server tidak dapat dibaca.', response.statusCode);
     }
 
     if (decoded is! Map<String, dynamic>) {
+      AppLog.error('$method $endpoint -> JSON bukan object');
       throw onError('Format respons server tidak sesuai.', response.statusCode);
     }
 
+    AppLog.info('$method $endpoint -> ${response.statusCode} OK');
     return decoded;
   }
 }

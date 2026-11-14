@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
@@ -40,6 +42,11 @@ class OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs + 2),
             _buildPriceRow(),
+            // P10 fix #3: bukti pengambilan bisa dilihat lagi setelah pickup.
+            if (order.proofPhoto != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _ProofThumb(base64Photo: order.proofPhoto!),
+            ],
             if (actions != null) ...[
               const SizedBox(height: AppSpacing.md),
               actions!,
@@ -105,6 +112,44 @@ class OrderCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Thumbnail bukti pengambilan (P10 fix #3).
+///
+/// Foto disimpan sebagai base64 supaya tidak butuh file eksternal.
+class _ProofThumb extends StatelessWidget {
+  final String base64Photo;
+
+  const _ProofThumb({required this.base64Photo});
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = base64Decode(base64Photo);
+
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          child: Image.memory(
+            bytes,
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stack) => const Icon(
+              Icons.broken_image_outlined,
+              size: 20,
+              color: AppColors.textHint,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          'Bukti pengambilan',
+          style: AppTextStyles.caption.copyWith(fontSize: 11),
         ),
       ],
     );

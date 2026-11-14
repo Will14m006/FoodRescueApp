@@ -3,10 +3,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/order_model.dart';
 import '../repositories/order_local_repository.dart';
+import 'auth_provider.dart';
 
 /// Repository lokal dibungkus provider supaya bisa di-inject & di-override saat test.
+///
+/// P10 fix #1: repository kini tahu [userId] aktif, jadi storage dipisah per
+/// akun. Provider ini ikut rebuild saat user berganti (login/logout).
 final orderLocalRepositoryProvider = Provider<OrderLocalRepository>((ref) {
-  return OrderLocalRepositoryImpl();
+  final userId = ref.watch(currentUserProvider)?.id;
+  return OrderLocalRepositoryImpl(userId: userId);
 });
 
 /// Daftar SharedPreferences yang di-override saat test (simulasi storage).
@@ -20,9 +25,13 @@ final prefsOverrideProvider = Provider<List<SharedPreferencesAsync>>((ref) {
 /// menyediakan operasi Create / Read / Update / Delete yang langsung
 /// ditulis kembali ke storage. Karena data ada di storage (bukan memory),
 /// pesanan tetap ada setelah aplikasi ditutup & dibuka lagi.
+///
+/// P10 fix #1: `build` juga `watch` user aktif, sehingga logout/login
+/// otomatis memuat ulang riwayat milik akun yang baru.
 class OrdersNotifier extends AsyncNotifier<List<Order>> {
   @override
   Future<List<Order>> build() async {
+    ref.watch(currentUserProvider);
     return _repository().loadOrders();
   }
 
@@ -37,8 +46,12 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
   }
 
   // === UPDATE ===
-  Future<void> markCompleted(String orderId) async {
-    await _repository().updateOrderStatus(orderId, OrderStatus.completed);
+  Future<void> markCompleted(String orderId, {String? proofPhoto}) async {
+    await _repository().updateOrderStatus(
+      orderId,
+      OrderStatus.completed,
+      proofPhoto: proofPhoto,
+    );
     state = AsyncData(await _repository().loadOrders());
   }
 

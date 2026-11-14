@@ -1,6 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
@@ -173,19 +176,34 @@ class _OrderActions extends ConsumerWidget {
 }
 
 /// P7 Advanced Feature #3 (Kamera): bukti foto sebelum menandai pickup.
+///
+/// P10 fix #3: foto yang dikonfirmasi sekarang disimpan bersama pesanan
+/// (base64) supaya bukti pengambilan tetap bisa dilihat setelah aplikasi
+/// ditutup. Kalau penyimpanan gagal, status TIDAK diubah.
 Future<void> _confirmPickup(
   BuildContext context,
   WidgetRef ref,
   Order order,
 ) async {
-  final confirmed = await showDialog<bool>(
+  final photo = await showDialog<Uint8List>(
     context: context,
     builder: (dialogContext) => const PickupProofDialog(),
   );
 
-  if (confirmed != true) return;
+  if (photo == null) return;
 
-  await ref.read(ordersProvider.notifier).markCompleted(order.id);
+  final encoded = base64Encode(photo);
+
+  try {
+    await ref
+        .read(ordersProvider.notifier)
+        .markCompleted(order.id, proofPhoto: encoded);
+  } on Exception catch (e) {
+    if (context.mounted) {
+      AppFeedback.error(context, 'Gagal menyimpan bukti pengambilan: $e');
+    }
+    return;
+  }
 
   if (context.mounted) {
     AppFeedback.success(context, 'Pesanan ditandai sudah diambil.');

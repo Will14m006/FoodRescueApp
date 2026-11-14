@@ -17,6 +17,7 @@ Future<void> main() async {
     surplusFoodName: catalog.first.name,
     quantity: 2,
     unitPrice: catalog.first.discountPrice,
+    userId: 1,
   );
   print('POST pesanan -> ${order.id} / ${order.pickupCode} / Rp ${order.totalPrice}');
 }

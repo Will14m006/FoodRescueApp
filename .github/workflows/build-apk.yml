@@ -1,0 +1,44 @@
+name: Build APK
+
+# P10: APK dibangun di runner GitHub (SDK Android sudah tersedia di sana),
+# karena mesin lokal tidak punya Android SDK.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: food_rescue_app
+        run: flutter pub get
+
+      - name: Analyze & test
+        working-directory: food_rescue_app
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build APK
+        working-directory: food_rescue_app
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: food-rescue-apk
+          path: food_rescue_app/build/app/outputs/flutter-apk/app-release.apk

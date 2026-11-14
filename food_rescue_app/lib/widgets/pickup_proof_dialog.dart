@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +15,10 @@ import '../providers/camera_provider.dart';
 ///   2. Foto tampil sebagai preview
 ///   3. "Konfirmasi" hanya aktif kalau foto sudah ada
 ///   4. User menutup kamera tanpa foto -> state batal, bukan error
+///
+/// P10 fix #3: `Konfirmasi` sekarang mengembalikan **bytes foto**, bukan
+/// sekadar `true`. Dulu fotonya langsung di-`clear()` sehingga bukti
+/// pengambilan hilang dan tidak bisa diperiksa lagi.
 class PickupProofDialog extends ConsumerWidget {
   const PickupProofDialog({super.key});
 
@@ -125,8 +131,10 @@ class PickupProofDialog extends ConsumerWidget {
           // Konfirmasi hanya bisa ditekan kalau foto sudah diambil.
           onPressed: cameraAsync.valueOrNull?.hasPhoto == true
               ? () {
+                  // Kirim bytes foto ke pemanggil SEBELUM state dibersihkan.
+                  final Uint8List photo = cameraAsync.valueOrNull!.bytes!;
                   ref.read(cameraProvider.notifier).clear();
-                  Navigator.pop(context, true);
+                  Navigator.pop(context, photo);
                 }
               : null,
           child: const Text('Konfirmasi'),

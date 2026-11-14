@@ -11,7 +11,9 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:food_rescue_app/models/surplus_food_model.dart';
+import 'package:food_rescue_app/providers/auth_provider.dart';
 import 'package:food_rescue_app/providers/booking_provider.dart';
+import 'package:food_rescue_app/repositories/auth_repository.dart';
 import 'package:food_rescue_app/repositories/order_repository.dart';
 import 'package:food_rescue_app/screens/booking_screen.dart';
 
@@ -38,7 +40,21 @@ Widget _wrapApp(Widget child, List<Override> overrides) {
 }
 
 List<Override> _fastRepo({Duration delay = const Duration(milliseconds: 10)}) {
-  return [orderRepositoryProvider.overrideWithValue(FakeOrderRepository(delay: delay))];
+  return [
+    orderRepositoryProvider.overrideWithValue(FakeOrderRepository(delay: delay)),
+    // P10 fix #4: booking butuh user login (userId tidak lagi hard-coded).
+    authProvider.overrideWith(_LoggedInAuthNotifier.new),
+  ];
+}
+
+class _LoggedInAuthNotifier extends AuthNotifier {
+  @override
+  AuthUser? build() => const AuthUser(
+        id: 1,
+        name: 'William',
+        email: 'william@test.com',
+        token: 'token-test',
+      );
 }
 
 Future<void> _scrollToButton(WidgetTester tester) async {

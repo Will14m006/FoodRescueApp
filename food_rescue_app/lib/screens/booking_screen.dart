@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/ui/app_feedback.dart';
 import '../core/utils/formatters.dart';
 import '../core/validation/validators.dart';
 import '../models/order_model.dart';
 import '../models/surplus_food_model.dart';
 import '../providers/booking_provider.dart';
+import '../providers/catalog_provider.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/circle_icon_button.dart';
@@ -114,6 +116,30 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           quantity: qty,
           unitPrice: food.discountPrice,
         );
+
+    // P10 fix #2: pesanan harus benar-benar tersimpan dulu sebelum layar
+    // sukses muncul. Dulu `addOrder` dipanggil tanpa `await`, jadi user bisa
+    // melihat kode pick-up padahal datanya belum masuk storage.
+    final result = ref.read(bookingProvider);
+    final order = result.valueOrNull;
+    if (result.hasError || order == null) return;
+
+    try {
+      await ref.read(ordersProvider.notifier).addOrder(order);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      AppFeedback.error(
+        context,
+        'Gagal menyimpan pesanan ke perangkat: $e. Coba lagi.',
+      );
+      return;
+    }
+
+    // P10 fix #5: katalog ikut diperbarui supaya sisa porsi berkurang.
+    ref.read(catalogProvider.notifier).reduceQuota(food.id, qty);
+
+    if (!mounted) return;
+    _showSuccessSheet(order);
   }
 
   void _showSuccessSheet(Order order) {
@@ -239,17 +265,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   Widget build(BuildContext context) {
     final orderAsync = ref.watch(bookingProvider);
 
-    // Dengarkan perubahan state: kalau ada Order baru (sukses), tampilkan bottom sheet.
-    ref.listen<AsyncValue<Order?>>(bookingProvider, (previous, next) {
-      next.whenData((order) {
-        if (order != null) {
-          // Simpan pesanan ke local storage (P5: Create).
-          ref.read(ordersProvider.notifier).addOrder(order);
-          _showSuccessSheet(order);
-        }
-      });
-    });
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -373,7 +388,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             const SizedBox(width: AppSpacing.sm + 2),
                             Expanded(
                               child: Text(
-                                'Ambil pukul ${food.pickupWindow}. Sisa ${food.quota} porsi saja!',
+                                'Estimasi ambil pukul ${food.pickupWindow}. Sisa ${food.quota} porsi.',
                                 style: AppTextStyles.body.copyWith(
                                   fontSize: 13,
                                   color: AppColors.textPrimary,

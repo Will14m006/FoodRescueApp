@@ -11,6 +11,8 @@ abstract class OrderRepository {
     required String surplusFoodName,
     required int quantity,
     required int unitPrice,
+    /// P10 fix #4: id user yang login. Dulu selalu dikirim `userId: 1`.
+    required int userId,
   });
 }
 
@@ -40,12 +42,13 @@ class ApiOrderRepository implements OrderRepository {
     required String surplusFoodName,
     required int quantity,
     required int unitPrice,
+    required int userId,
   }) async {
     final json = await _api.sendJson(
       method: 'POST',
       endpoint: endpoint,
       body: {
-        'userId': 1,
+        'userId': userId,
         'products': [
           {'id': int.tryParse(surplusFoodId) ?? 1, 'quantity': quantity},
         ],
@@ -77,6 +80,7 @@ class ApiOrderRepository implements OrderRepository {
       totalPrice: unitPrice * quantity,
       status: OrderStatus.pending,
       createdAt: _clock(),
+      userId: userId,
     );
   }
 }
@@ -95,6 +99,7 @@ class FakeOrderRepository implements OrderRepository {
     required String surplusFoodName,
     required int quantity,
     required int unitPrice,
+    required int userId,
   }) async {
     await Future.delayed(delay);
     _counter += 1;
@@ -108,6 +113,7 @@ class FakeOrderRepository implements OrderRepository {
       totalPrice: unitPrice * quantity,
       status: OrderStatus.pending,
       createdAt: DateTime.now(),
+      userId: userId,
     );
   }
 }

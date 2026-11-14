@@ -12,18 +12,33 @@ import '../models/order_model.dart';
 abstract class OrderLocalRepository {
   Future<List<Order>> loadOrders();
   Future<void> saveOrder(Order order);
-  Future<void> updateOrderStatus(String orderId, OrderStatus status);
+  Future<void> updateOrderStatus(
+    String orderId,
+    OrderStatus status, {
+    String? proofPhoto,
+  });
   Future<void> deleteOrder(String orderId);
   Future<void> clearAll();
 }
 
 class OrderLocalRepositoryImpl implements OrderLocalRepository {
-  OrderLocalRepositoryImpl({this.prefsWithOverrides});
+  OrderLocalRepositoryImpl({this.prefsWithOverrides, this.userId});
 
   /// Daftar SharedPreferences yang sudah di-override (dipakai saat test).
   final List<SharedPreferencesAsync>? prefsWithOverrides;
 
-  static const _key = 'food_rescue_orders';
+  /// P10 fix #1: pesanan dipisah per akun. Dulu satu key global
+  /// (`food_rescue_orders`) sehingga akun berikutnya di perangkat yang sama
+  /// melihat pesanan akun sebelumnya.
+  final int? userId;
+
+  /// Key lama (device-wide). Hanya dibaca sekali untuk migrasi.
+  static const _legacyKey = 'food_rescue_orders';
+
+  static String keyFor(int? userId) =>
+      userId == null ? 'food_rescue_orders_guest' : 'food_rescue_orders_u$userId';
+
+  String get _key => keyFor(userId);
 
   Future<SharedPreferencesAsync> get _prefs async {
     if (prefsWithOverrides != null && prefsWithOverrides!.isNotEmpty) {
@@ -37,8 +52,26 @@ class OrderLocalRepositoryImpl implements OrderLocalRepository {
     final prefs = await _prefs;
     final raw = await prefs.getString(_key);
 
-    if (raw == null || raw.isEmpty) return [];
+    if (raw == null || raw.isEmpty) {
+      return _migrateLegacy(prefs);
+    }
 
+    return _decode(raw);
+  }
+
+  /// P10 fix #1: data dari versi lama (satu key untuk semua akun) dipindahkan
+  /// ke key akun yang sedang login supaya riwayat pengguna tidak hilang.
+  Future<List<Order>> _migrateLegacy(SharedPreferencesAsync prefs) async {
+    final legacy = await prefs.getString(_legacyKey);
+    if (legacy == null || legacy.isEmpty) return [];
+
+    final orders = _decode(legacy);
+    await prefs.setString(_key, legacy);
+    await prefs.remove(_legacyKey);
+    return orders;
+  }
+
+  List<Order> _decode(String raw) {
     final List<dynamic> jsonList = jsonDecode(raw) as List<dynamic>;
     return jsonList
         .map((json) => Order.fromJson(json as Map<String, dynamic>))
@@ -59,20 +92,18 @@ class OrderLocalRepositoryImpl implements OrderLocalRepository {
   }
 
   @override
-  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+  Future<void> updateOrderStatus(
+    String orderId,
+    OrderStatus status, {
+    String? proofPhoto,
+  }) async {
     final orders = await loadOrders();
     final index = orders.indexWhere((order) => order.id == orderId);
     if (index == -1) return;
 
-    orders[index] = Order(
-      id: orders[index].id,
-      pickupCode: orders[index].pickupCode,
-      buyerName: orders[index].buyerName,
-      surplusFoodName: orders[index].surplusFoodName,
-      quantity: orders[index].quantity,
-      totalPrice: orders[index].totalPrice,
+    orders[index] = orders[index].copyWith(
       status: status,
-      createdAt: orders[index].createdAt,
+      proofPhoto: proofPhoto,
     );
     await _writeAll(orders);
   }

@@ -100,7 +100,10 @@ class SurplusFood {
           : 'Makanan surplus siap diselamatkan hari ini.',
       originalPrice: original,
       discountPrice: discounted,
-      quota: _quotaFor(stock, category),
+      // P10 fix #5: kuota = stok nyata dari API. Dulu nilainya dikarang
+      // (`1 + stock % ceiling`) sehingga angka "sisa porsi" tidak pernah
+      // cocok dengan ketersediaan sebenarnya.
+      quota: stock < 0 ? 0 : stock,
       pickupWindow: _pickupWindowFor(id is int ? id : 0),
       category: category,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
@@ -109,35 +112,28 @@ class SurplusFood {
     );
   }
 
-  static const _usdToIdr = 16000;
-
-  /// Kuota maksimum yang masuk akal untuk makanan surplus.
+  /// Salinan dengan kuota berkurang setelah pesanan berhasil.
   ///
-  /// Stok dari API bisa sangat besar (mis. 97), padahal ini makanan sisa yang
-  /// harus habis hari itu. Nilai di sini adalah batas atas per kategori.
-  static int quotaCeiling(FoodCategory category) {
-    switch (category) {
-      case FoodCategory.main:
-        return 10; // makanan berat: porsi terbatas
-      case FoodCategory.bakery:
-        return 6; // roti: biasanya per paket
-      case FoodCategory.snack:
-        return 8;
-      case FoodCategory.drink:
-        return 5; // minuman: paling cepat habis
-      case FoodCategory.all:
-        return 10;
-    }
+  /// P10 fix #5: katalog ikut diperbarui supaya angka sisa porsi tidak
+  /// "beku" setelah user memesan.
+  SurplusFood copyWithQuota(int newQuota) {
+    return SurplusFood(
+      id: id,
+      merchantName: merchantName,
+      name: name,
+      description: description,
+      originalPrice: originalPrice,
+      discountPrice: discountPrice,
+      quota: newQuota < 0 ? 0 : newQuota,
+      pickupWindow: pickupWindow,
+      category: category,
+      rating: rating,
+      sold: sold,
+      emoji: emoji,
+    );
   }
 
-  /// Kuota tampilan: stok API dipotong ke batas kategori, minimal 1.
-  /// Sisanya tetap bervariasi supaya tidak semua item terlihat sama.
-  static int _quotaFor(int stock, FoodCategory category) {
-    if (stock <= 0) return 0;
-    final ceiling = quotaCeiling(category);
-    final derived = 1 + (stock.abs() % ceiling);
-    return derived > ceiling ? ceiling : derived;
-  }
+  static const _usdToIdr = 16000;
 
   static String _merchantFor(String? category) {
     switch (category) {
@@ -161,6 +157,11 @@ class SurplusFood {
     }
   }
 
+  /// Jam ambil **placeholder demo**.
+  ///
+  /// P10 fix #5: dummyjson tidak menyediakan jam operasional merchant, jadi
+  /// nilai ini tetap diturunkan dari id produk dan ditandai sebagai estimasi
+  /// di UI — bukan diklaim sebagai jadwal asli.
   static String _pickupWindowFor(int id) {
     const windows = [
       '17:00 - 19:00',

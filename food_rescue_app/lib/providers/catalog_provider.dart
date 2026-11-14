@@ -29,6 +29,20 @@ class CatalogNotifier extends AsyncNotifier<List<SurplusFood>> {
     state = await AsyncValue.guard(_fetch);
   }
 
+  /// P10 fix #5: kurangi kuota item setelah pesanan berhasil supaya angka
+  /// "sisa porsi" di katalog tidak beku.
+  void reduceQuota(String foodId, int quantity) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    state = AsyncData([
+      for (final food in current)
+        food.id == foodId
+            ? food.copyWithQuota(food.quota - quantity)
+            : food,
+    ]);
+  }
+
   Future<List<SurplusFood>> _fetch() {
     return ref.read(surplusFoodRepositoryProvider).fetchSurplusFoods();
   }

@@ -36,6 +36,9 @@ Dokumentasi P8 (layout adaptif, keyboard-safe, aksesibilitas, feedback) ada di
 Dokumentasi P9 (test & refactor — hapus duplikasi code, pemisahan tanggung
 jawab `ProfileForm` / `Validators` / `ProfileRepository`) ada di
 [docs/P9_REFACTOR.md](./docs/P9_REFACTOR.md).
+Dokumentasi P10 (runtime logging, perbaikan 5 issue hasil peer review, dan 12
+issue untuk aplikasi rekan) ada di [docs/P10_BUGFIX.md](./docs/P10_BUGFIX.md)
+serta [docs/P10_ISSUES_SPACE_SYNC.md](./docs/P10_ISSUES_SPACE_SYNC.md).
 
 ## 📦 Instalasi & Menjalankan
 
@@ -65,3 +68,4 @@ flutter test
 | P7 | MVP lengkap + 3 advanced feature (Autentikasi, Lokasi, Kamera) | ✅ Selesai |
 | P8 | Layout adaptif, keyboard-safe, accessibility, feedback aksi | ✅ Selesai |
 | P9 | Test & refactor: hapus duplikasi code + pisah `ProfileForm`/`Validators`/`ProfileRepository` (70 test) | ✅ Selesai |
+| P10 | Runtime logging + perbaikan 5 issue hasil review + 12 issue untuk aplikasi rekan (84 test) | ✅ Selesai |

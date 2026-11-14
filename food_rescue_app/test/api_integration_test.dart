@@ -60,18 +60,17 @@ void main() {
     expect(food.name, 'Apple');
     expect(food.category, FoodCategory.main);
     expect(food.originalPrice, (1.99 * 16000).round());
-    // Stok API (8) dipotong ke batas wajar kategori makanan berat (maks 10).
-    expect(food.quota, inInclusiveRange(1, SurplusFood.quotaCeiling(FoodCategory.main)));
+    // P10 fix #5: kuota = stok nyata dari API (8), bukan angka karangan.
+    expect(food.quota, 8);
     expect(food.isAvailable, isTrue);
     expect(food.rating, 4.19);
     expect(food.sold, 1); // jumlah review
   });
 
-  test('kuota: stok besar (97) dipotong ke batas logis per kategori', () {
+  test('kuota: mengikuti stok API apa adanya (tidak dimodulo)', () {
     final food = SurplusFood.fromJson(_validProduct(stock: 97));
 
-    expect(food.quota, lessThanOrEqualTo(10));
-    expect(food.quota, greaterThan(0));
+    expect(food.quota, 97);
   });
 
   test('model valid: quota 0 dianggap tidak tersedia', () {
@@ -231,6 +230,7 @@ void main() {
       surplusFoodName: 'Apple',
       quantity: 2,
       unitPrice: 5000,
+      userId: 1,
     );
 
     expect(order.id, startsWith('ord-209-'));
@@ -254,6 +254,7 @@ void main() {
       surplusFoodName: 'Apple',
       quantity: 1,
       unitPrice: 1000,
+      userId: 1,
     );
     final second = await repo.createOrder(
       buyerName: 'B',
@@ -261,6 +262,7 @@ void main() {
       surplusFoodName: 'Beef',
       quantity: 1,
       unitPrice: 1000,
+      userId: 1,
     );
 
     expect(first.id, isNot(second.id));
@@ -279,6 +281,7 @@ void main() {
         surplusFoodName: 'Apple',
         quantity: 1,
         unitPrice: 5000,
+        userId: 1,
       ),
       throwsA(isA<ApiException>()),
     );
@@ -296,6 +299,7 @@ void main() {
         surplusFoodName: 'Apple',
         quantity: 1,
         unitPrice: 5000,
+        userId: 1,
       ),
       throwsA(isA<ApiException>()),
     );
