@@ -1,73 +1,27 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-
+﻿import '../core/network/api_client.dart';
+import '../core/network/api_exception.dart';
 import '../models/surplus_food_model.dart';
 
-/// Kontrak sumber data katalog surplus.
 abstract class SurplusFoodRepository {
   Future<List<SurplusFood>> fetchSurplusFoods();
 }
 
-/// Error yang bisa ditampilkan rapi di UI (bukan stack trace mentah).
-class ApiException implements Exception {
-  const ApiException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-/// P6: Integrasi API sungguhan.
-///
-/// GET https://dummyjson.com/products/category/groceries
-/// - 200 + `products` berisi data -> `List<SurplusFood>`
-/// - 200 + `products` kosong       -> []
-/// - status non-200                -> [ApiException] (HTTP gagal)
-/// - body bukan JSON / JSON rusak  -> [ApiException]
-/// - item tidak sesuai model       -> [InvalidModelException]
+/// Katalog publik: `GET /foods` (hanya yang aktif & masih ada kuota).
 class ApiSurplusFoodRepository implements SurplusFoodRepository {
-  ApiSurplusFoodRepository({http.Client? client, this.timeout = const Duration(seconds: 12)})
-      : _client = client ?? http.Client();
+  ApiSurplusFoodRepository({required this.api});
 
-  final http.Client _client;
-  final Duration timeout;
-
-  static const endpoint =
-      'https://dummyjson.com/products/category/groceries?limit=100';
+  final ApiClient api;
 
   @override
   Future<List<SurplusFood>> fetchSurplusFoods() async {
-    final http.Response response;
-    try {
-      response = await _client.get(Uri.parse(endpoint)).timeout(timeout);
-    } on Exception {
-      // Termasuk SocketException / timeout / offline.
-      throw const ApiException(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet kamu.',
-      );
+    final body = await api.request(method: 'GET', path: '/foods');
+
+    final foods = body['foods'];
+    if (foods is! List) {
+      throw const ApiException('Format katalog dari server tidak sesuai.');
     }
 
-    if (response.statusCode != 200) {
-      throw ApiException(
-        'Server mengembalikan error ${response.statusCode}. Coba lagi sebentar.',
-      );
-    }
-
-    final dynamic decoded;
-    try {
-      decoded = jsonDecode(response.body);
-    } on FormatException {
-      throw const ApiException('Respons server tidak dapat dibaca (JSON rusak).');
-    }
-
-    if (decoded is! Map<String, dynamic> || decoded['products'] is! List) {
-      throw const ApiException('Format respons server tidak sesuai.');
-    }
-
-    final products = decoded['products'] as List;
-
-    return products
+    return foods
         .whereType<Map<String, dynamic>>()
         .map(SurplusFood.fromJson)
         .where((food) => food.isAvailable)
@@ -75,10 +29,10 @@ class ApiSurplusFoodRepository implements SurplusFoodRepository {
   }
 }
 
-/// Implementasi palsu (fake) yang mensimulasikan panggilan API ke backend.
+/// Implementasi palsu yang mensimulasikan panggilan API ke backend.
 ///
-/// Dipakai oleh widget test supaya test tidak bergantung jaringan internet.
-/// Delay 1.2 detik sengaja dibuat agar state "loading" benar-benar terlihat.
+/// Dipakai widget test supaya test tidak bergantung jaringan. Delay 1.2 detik
+/// sengaja dibuat agar state "loading" benar-benar terlihat.
 /// Flag [simulateFailureOnFirstCall] dibuat agar state "error + retry" bisa
 /// didemokan: pemanggilan pertama gagal, lalu sukses ketika tombol Retry
 /// ditekan (persis seperti jaringan tidak stabil di dunia nyata).
@@ -97,7 +51,7 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
 
   static const _seedFoods = <SurplusFood>[
     SurplusFood(
-      id: 'sf-001',
+      id: 1,
       merchantName: 'Roti O Bakso',
       name: 'Paket Roti Sisa Hari Ini',
       description: 'Isi 6 pcs roti varian klasik, masih segar dari oven pagi.',
@@ -106,12 +60,10 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 4,
       pickupWindow: '19:00 - 21:00',
       category: FoodCategory.bakery,
-      rating: 4.9,
-      sold: 32,
       emoji: '🥖',
     ),
     SurplusFood(
-      id: 'sf-002',
+      id: 2,
       merchantName: 'Kafe Senja',
       name: 'Pastry & Croissant',
       description: 'Croissant butter & pain au chocolat, 4 pcs campuran.',
@@ -120,12 +72,10 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 2,
       pickupWindow: '20:00 - 22:00',
       category: FoodCategory.snack,
-      rating: 4.8,
-      sold: 41,
       emoji: '🥐',
     ),
     SurplusFood(
-      id: 'sf-003',
+      id: 3,
       merchantName: 'Warung Nasi Ibu Ani',
       name: 'Nasi Sayur + Lauk Ayam',
       description: 'Nasi putih, sayur asem, ayam goreng, dan sambal rumahan.',
@@ -134,12 +84,10 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 5,
       pickupWindow: '21:00 - 22:30',
       category: FoodCategory.main,
-      rating: 4.7,
-      sold: 58,
       emoji: '🍱',
     ),
     SurplusFood(
-      id: 'sf-004',
+      id: 4,
       merchantName: 'Bakery Sumber Rezeki',
       name: 'Roti Tawar & Donat (5 pcs)',
       description: 'Roti tawar gandum 3 pcs + donat gula 2 pcs.',
@@ -148,12 +96,10 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 3,
       pickupWindow: '18:30 - 20:00',
       category: FoodCategory.bakery,
-      rating: 4.6,
-      sold: 27,
       emoji: '🍩',
     ),
     SurplusFood(
-      id: 'sf-005',
+      id: 5,
       merchantName: 'Mie Ayam Pak Dwi',
       name: 'Mie Ayam Special + Es Teh',
       description: 'Mie ayam jamur, pangsit goreng, dan segelas es teh manis.',
@@ -162,12 +108,10 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 6,
       pickupWindow: '21:30 - 23:00',
       category: FoodCategory.main,
-      rating: 4.8,
-      sold: 64,
       emoji: '🍜',
     ),
     SurplusFood(
-      id: 'sf-006',
+      id: 6,
       merchantName: 'Segar Juice Bar',
       name: 'Jus Alpukat Murni (500ml)',
       description: 'Alpukat lokal tanpa gula tambahan, langsung diperas.',
@@ -176,8 +120,6 @@ class FakeSurplusFoodRepository implements SurplusFoodRepository {
       quota: 3,
       pickupWindow: '20:30 - 22:00',
       category: FoodCategory.drink,
-      rating: 4.9,
-      sold: 19,
       emoji: '🥤',
     ),
   ];

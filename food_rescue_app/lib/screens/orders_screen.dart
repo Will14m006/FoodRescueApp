@@ -116,7 +116,7 @@ class _HistoryHeader extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs + 2),
           Text(
-            'Tersimpan di perangkat kamu — tetap ada setelah aplikasi ditutup',
+            'Semua pesanan akun ini, langsung dari server',
             style: AppTextStyles.body.copyWith(
               color: AppColors.textOnPrimary.withValues(alpha: 0.9),
               fontSize: 13,

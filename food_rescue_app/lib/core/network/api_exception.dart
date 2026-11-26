@@ -1,0 +1,13 @@
+/// Error yang aman ditampilkan ke pengguna.
+///
+/// [statusCode] null berarti permintaan tidak sampai ke server (jaringan).
+class ApiException implements Exception {
+  const ApiException(this.message, {this.statusCode});
+  final String message;
+  final int? statusCode;
+
+  bool get isUnauthorized => statusCode == 401;
+
+  @override
+  String toString() => message;
+}

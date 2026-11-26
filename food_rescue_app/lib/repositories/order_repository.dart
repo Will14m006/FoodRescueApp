@@ -1,119 +1,170 @@
-import 'package:http/http.dart' as http;
-
 import '../core/network/api_client.dart';
+import '../core/network/api_exception.dart';
 import '../models/order_model.dart';
-import 'surplus_food_repository.dart' show ApiException;
 
 abstract class OrderRepository {
+  /// Buat pesanan. Harga dihitung server — klien tidak boleh menentukan total.
   Future<Order> createOrder({
-    required String buyerName,
-    required String surplusFoodId,
-    required String surplusFoodName,
+    required String token,
+    required int foodId,
     required int quantity,
-    required int unitPrice,
-    /// P10 fix #4: id user yang login. Dulu selalu dikirim `userId: 1`.
-    required int userId,
   });
+
+  Future<List<Order>> fetchOrders({required String token});
+
+  /// Merchant memverifikasi kode pick-up milik pembeli.
+  Future<Order> complete({
+    required String token,
+    required int orderId,
+    required String pickupCode,
+  });
+
+  Future<Order> cancel({required String token, required int orderId});
 }
 
-/// P6: Penyimpanan pesanan ke backend sungguhan.
-///
-/// POST https://dummyjson.com/carts/add
-/// - 200/201 + JSON valid -> [Order] dengan PickupCode dari server
-/// - status lain          -> [ApiException] (HTTP gagal)
-/// - body bukan JSON      -> [ApiException] (JSON rusak)
 class ApiOrderRepository implements OrderRepository {
-  ApiOrderRepository({
-    http.Client? client,
-    Duration timeout = const Duration(seconds: 12),
-    DateTime Function()? clock,
-  })  : _api = ApiClient(client: client, timeout: timeout),
-        _clock = clock ?? DateTime.now;
+  ApiOrderRepository({required this.api});
 
-  final ApiClient _api;
-  final DateTime Function() _clock;
-
-  static const endpoint = 'https://dummyjson.com/carts/add';
+  final ApiClient api;
 
   @override
   Future<Order> createOrder({
-    required String buyerName,
-    required String surplusFoodId,
-    required String surplusFoodName,
+    required String token,
+    required int foodId,
     required int quantity,
-    required int unitPrice,
-    required int userId,
   }) async {
-    final json = await _api.sendJson(
+    final body = await api.request(
       method: 'POST',
-      endpoint: endpoint,
-      body: {
-        'userId': userId,
-        'products': [
-          {'id': int.tryParse(surplusFoodId) ?? 1, 'quantity': quantity},
-        ],
-      },
-      onError: (message, statusCode) => ApiException(
-        statusCode == null
-            ? message
-            : 'Gagal menyimpan pesanan ($message). Coba lagi.',
-      ),
+      path: '/orders',
+      token: token,
+      body: {'foodId': foodId, 'quantity': quantity},
     );
+    return _order(body);
+  }
 
-    final serverId = json['id'];
-    if (serverId == null) {
-      throw const ApiException('Format respons server tidak sesuai.');
+  @override
+  Future<List<Order>> fetchOrders({required String token}) async {
+    final body = await api.request(method: 'GET', path: '/orders', token: token);
+
+    final orders = body['orders'];
+    if (orders is! List) {
+      throw const ApiException('Format daftar pesanan tidak sesuai.');
     }
+    return orders
+        .whereType<Map<String, dynamic>>()
+        .map(Order.fromJson)
+        .toList();
+  }
 
-    // dummyjson selalu mengembalikan id cart yang sama (209) untuk tiap POST,
-    // jadi id/kode dari server tidak boleh dipakai mentah-mentah: dua pesanan
-    // akan bertabrakan dan hanya pesanan pertama yang bisa diubah.
-    // Solusi: gabungkan id server + timestamp agar setiap pesanan unik.
-    final uniqueSuffix = _clock().microsecondsSinceEpoch % 1000000;
-
-    return Order(
-      id: 'ord-$serverId-$uniqueSuffix',
-      pickupCode: 'RESCUE-$serverId-$uniqueSuffix',
-      buyerName: buyerName,
-      surplusFoodName: surplusFoodName,
-      quantity: quantity,
-      totalPrice: unitPrice * quantity,
-      status: OrderStatus.pending,
-      createdAt: _clock(),
-      userId: userId,
+  @override
+  Future<Order> complete({
+    required String token,
+    required int orderId,
+    required String pickupCode,
+  }) async {
+    final body = await api.request(
+      method: 'POST',
+      path: '/orders/$orderId/complete',
+      token: token,
+      body: {'pickupCode': pickupCode},
     );
+    return _order(body);
+  }
+
+  @override
+  Future<Order> cancel({required String token, required int orderId}) async {
+    final body = await api.request(
+      method: 'POST',
+      path: '/orders/$orderId/cancel',
+      token: token,
+    );
+    return _order(body);
+  }
+
+  Order _order(Map<String, dynamic> body) {
+    final order = body['order'];
+    if (order is! Map<String, dynamic>) {
+      throw const ApiException('Format respons pesanan tidak sesuai.');
+    }
+    return Order.fromJson(order);
   }
 }
 
-/// Implementasi palsu (fake) untuk widget test.
+/// Implementasi palsu untuk widget test (tanpa jaringan).
+///
+/// Bertindak seperti server kecil di memori: pesanan yang dibuat tersimpan,
+/// `complete` memverifikasi kode, `cancel` mengubah status. Dengan begitu
+/// alur booking -> status -> riwayat bisa diuji tanpa backend berjalan.
 class FakeOrderRepository implements OrderRepository {
   FakeOrderRepository({this.delay = const Duration(milliseconds: 1500)});
 
   final Duration delay;
+  final List<Order> _orders = [];
   int _counter = 100;
+
+  /// Berapa kali [createOrder] dipanggil - dipakai test anti double-tap.
+  int createCalls = 0;
+
+  /// Jumlah porsi pada panggilan terakhir.
+  int? lastQuantity;
 
   @override
   Future<Order> createOrder({
-    required String buyerName,
-    required String surplusFoodId,
-    required String surplusFoodName,
+    required String token,
+    required int foodId,
     required int quantity,
-    required int unitPrice,
-    required int userId,
   }) async {
-    await Future.delayed(delay);
+    createCalls += 1;
+    lastQuantity = quantity;
+    await Future<void>.delayed(delay);
     _counter += 1;
 
-    return Order(
-      id: 'ord-$_counter',
-      pickupCode: 'RESCUE-$_counter',
-      buyerName: buyerName,
-      surplusFoodName: surplusFoodName,
+    final order = Order(
+      id: _counter,
+      pickupCode: 'RESCUE-${_counter.toString()}',
+      buyerName: 'Pembeli',
+      foodId: foodId,
+      surplusFoodName: 'Paket Roti Sisa Hari Ini',
+      merchantName: 'Roti O Bakso',
       quantity: quantity,
-      totalPrice: unitPrice * quantity,
+      totalPrice: 15000 * quantity,
       status: OrderStatus.pending,
       createdAt: DateTime.now(),
-      userId: userId,
     );
+    _orders.insert(0, order);
+    return order;
+  }
+
+  @override
+  Future<List<Order>> fetchOrders({required String token}) async =>
+      List.unmodifiable(_orders);
+
+  @override
+  Future<Order> complete({
+    required String token,
+    required int orderId,
+    required String pickupCode,
+  }) async {
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index < 0) throw const ApiException('Pesanan tidak ditemukan.');
+
+    final order = _orders[index];
+    if (order.pickupCode != pickupCode) {
+      throw const ApiException('Kode pick-up tidak cocok.', statusCode: 422);
+    }
+
+    final updated = order.copyWith(status: OrderStatus.completed);
+    _orders[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<Order> cancel({required String token, required int orderId}) async {
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index < 0) throw const ApiException('Pesanan tidak ditemukan.');
+
+    final updated = _orders[index].copyWith(status: OrderStatus.cancelled);
+    _orders[index] = updated;
+    return updated;
   }
 }

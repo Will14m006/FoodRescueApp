@@ -5,6 +5,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/surplus_food_model.dart';
+import '../providers/auth_provider.dart';
 import '../providers/catalog_provider.dart';
 import '../routes/app_routes.dart';
 import '../widgets/circle_icon_button.dart';
@@ -54,6 +55,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final catalogAsync = ref.watch(catalogProvider);
     final searchQuery = ref.watch(searchQueryProvider);
     final category = ref.watch(selectedCategoryProvider);
+    final userName = ref.watch(currentUserProvider)?.name ?? 'Food Rescuer';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -61,7 +63,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Column(
           children: [
             // === Header ===
-            _buildHeader(),
+            _buildHeader(userName),
             // === Lokasi (advanced feature: GPS) ===
             const ResponsiveBody(maxWidth: 1100, child: LocationBanner()),
             // === Search bar ===
@@ -119,7 +121,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String userName) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(
@@ -185,11 +187,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               const Icon(Icons.location_on_rounded, color: AppColors.textOnPrimary, size: 14),
               const SizedBox(width: 4),
-              Text(
-                'Katalog surplus hari ini',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textOnPrimary.withValues(alpha: 0.9),
-                  fontSize: 13,
+              Expanded(
+                child: Text(
+                  'Halo $userName · katalog surplus hari ini',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textOnPrimary.withValues(alpha: 0.9),
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],

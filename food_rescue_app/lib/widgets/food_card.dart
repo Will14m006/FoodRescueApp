@@ -82,7 +82,7 @@ class FoodCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // Badge rating
+              // Badge sisa porsi (data nyata dari server, bukan rating karangan)
               Positioned(
                 top: AppSpacing.sm + 2,
                 right: AppSpacing.sm + 2,
@@ -95,10 +95,10 @@ class FoodCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 12, color: AppColors.warning),
+                      const Icon(Icons.inventory_2_outlined, size: 12, color: AppColors.warning),
                       const SizedBox(width: 2),
                       Text(
-                        food.rating.toStringAsFixed(1),
+                        '${food.quota}',
                         style: AppTextStyles.base.copyWith(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

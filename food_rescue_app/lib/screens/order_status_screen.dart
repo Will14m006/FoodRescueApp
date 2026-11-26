@@ -9,6 +9,8 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/ui/app_feedback.dart';
 import '../models/order_model.dart';
+import '../models/user_role.dart';
+import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
@@ -30,6 +32,7 @@ class OrderStatusScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
+    final role = ref.watch(currentRoleProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -45,17 +48,18 @@ class OrderStatusScreen extends ConsumerWidget {
                   error: (error, stack) => EmptyStateView(
                     emoji: '❌',
                     title: 'Gagal Memuat',
-                    message: 'Terjadi kesalahan saat memuat pesanan.',
+                    message: '$error',
                     actionLabel: 'Coba Lagi',
                     onAction: () => ref.read(ordersProvider.notifier).refresh(),
                   ),
                   data: (orders) {
                     if (orders.isEmpty) {
-                      return const EmptyStateView(
+                      return EmptyStateView(
                         emoji: '📦',
-                        title: 'Belum Ada Pesanan Aktif',
-                        message:
-                            'Pesanan yang kamu buat akan muncul di sini. Kamu bisa membatalkan atau menandainya sudah diambil.',
+                        title: 'Belum Ada Pesanan',
+                        message: role == UserRole.merchant
+                            ? 'Pesanan dari pembeli akan muncul di sini.'
+                            : 'Pesanan yang kamu buat akan muncul di sini.',
                       );
                     }
 
@@ -71,15 +75,15 @@ class OrderStatusScreen extends ConsumerWidget {
                           const SizedBox(height: AppSpacing.md + 2),
                       itemBuilder: (context, index) {
                         final order = orders[index];
-                        // Aksi Update hanya untuk pesanan pending. Pesanan
-                        // TIDAK bisa dihapus user — riwayat permanen.
                         final isActive = order.status == OrderStatus.pending;
 
                         return OrderCard(
                           order: order,
-                          actions: isActive
-                              ? _OrderActions(order: order)
-                              : null,
+                          actions: !isActive
+                              ? null
+                              : role == UserRole.buyer
+                                  ? _BuyerActions(order: order)
+                                  : _StaffActions(order: order),
                         );
                       },
                     );
@@ -142,11 +146,14 @@ class _StatusHeader extends StatelessWidget {
   }
 }
 
-/// P9: aksi Update dipisah jadi widget sendiri, terpisah dari card read-only.
-class _OrderActions extends ConsumerWidget {
+/// Aksi untuk pembeli: lampirkan bukti foto (lokal), atau batalkan.
+///
+/// Pembeli **tidak** menandai pesanan selesai — itu hak merchant yang
+/// memverifikasi kode. Server menolak `complete` dari token pembeli.
+class _BuyerActions extends ConsumerWidget {
   final Order order;
 
-  const _OrderActions({required this.order});
+  const _BuyerActions({required this.order});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -154,10 +161,10 @@ class _OrderActions extends ConsumerWidget {
       children: [
         Expanded(
           child: _ActionButton(
-            icon: Icons.check_circle_outline_rounded,
-            label: 'Sudah Pickup',
+            icon: Icons.camera_alt_outlined,
+            label: 'Bukti Pickup',
             color: AppColors.primary,
-            onTap: () => _confirmPickup(context, ref, order),
+            onTap: () => _attachProof(context, ref, order),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -175,12 +182,42 @@ class _OrderActions extends ConsumerWidget {
   }
 }
 
-/// P7 Advanced Feature #3 (Kamera): bukti foto sebelum menandai pickup.
-///
-/// P10 fix #3: foto yang dikonfirmasi sekarang disimpan bersama pesanan
-/// (base64) supaya bukti pengambilan tetap bisa dilihat setelah aplikasi
-/// ditutup. Kalau penyimpanan gagal, status TIDAK diubah.
-Future<void> _confirmPickup(
+/// Aksi untuk merchant/admin: verifikasi kode pick-up atau batalkan.
+class _StaffActions extends ConsumerWidget {
+  final Order order;
+
+  const _StaffActions({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ActionButton(
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Verifikasi & Selesai',
+            color: AppColors.primary,
+            onTap: () => _verifyCode(context, ref, order),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _ActionButton(
+            icon: Icons.cancel_outlined,
+            label: 'Batalkan',
+            color: AppColors.error,
+            onTap: () => _cancelOrder(context, ref, order),
+            isDestructive: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bukti foto pengambilan hanya untuk pembeli dan **tidak** mengubah status:
+/// status ditentukan merchant lewat kode pick-up.
+Future<void> _attachProof(
   BuildContext context,
   WidgetRef ref,
   Order order,
@@ -189,24 +226,81 @@ Future<void> _confirmPickup(
     context: context,
     builder: (dialogContext) => const PickupProofDialog(),
   );
-
   if (photo == null) return;
-
-  final encoded = base64Encode(photo);
 
   try {
     await ref
         .read(ordersProvider.notifier)
-        .markCompleted(order.id, proofPhoto: encoded);
+        .attachProof(order.id, base64Encode(photo));
   } on Exception catch (e) {
     if (context.mounted) {
-      AppFeedback.error(context, 'Gagal menyimpan bukti pengambilan: $e');
+      AppFeedback.error(context, 'Gagal menyimpan bukti: $e');
     }
     return;
   }
 
   if (context.mounted) {
-    AppFeedback.success(context, 'Pesanan ditandai sudah diambil.');
+    AppFeedback.success(
+      context,
+      'Bukti tersimpan di perangkat. Tunjukkan kode ke merchant.',
+    );
+  }
+}
+
+Future<void> _verifyCode(
+  BuildContext context,
+  WidgetRef ref,
+  Order order,
+) async {
+  final controller = TextEditingController();
+  final code = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      title: const Text('Verifikasi Pick-up'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Minta kode dari ${order.buyerName}, lalu masukkan di sini.',
+            style: AppTextStyles.caption,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(hintText: 'RESCUE-XXXXXXXX'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () =>
+              Navigator.pop(dialogContext, controller.text.trim()),
+          child: const Text('Selesai'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (code == null || code.isEmpty || !context.mounted) return;
+
+  try {
+    await ref.read(ordersProvider.notifier).complete(
+          orderId: order.id,
+          pickupCode: code,
+        );
+    if (context.mounted) AppFeedback.success(context, 'Pesanan selesai.');
+  } on Exception catch (e) {
+    if (context.mounted) AppFeedback.error(context, '$e');
   }
 }
 
@@ -246,10 +340,11 @@ Future<void> _cancelOrder(
 
   if (confirmed != true) return;
 
-  await ref.read(ordersProvider.notifier).markCancelled(order.id);
-
-  if (context.mounted) {
-    AppFeedback.info(context, 'Pesanan dibatalkan.');
+  try {
+    await ref.read(ordersProvider.notifier).cancel(order.id);
+    if (context.mounted) AppFeedback.info(context, 'Pesanan dibatalkan.');
+  } on Exception catch (e) {
+    if (context.mounted) AppFeedback.error(context, '$e');
   }
 }
 

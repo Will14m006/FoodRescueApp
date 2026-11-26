@@ -14,10 +14,11 @@ import '../widgets/circle_icon_button.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/responsive_body.dart';
 
-/// P9: `ProfileForm` — HANYA mengurus input & status UI.
+/// Edit profil: **hanya** nama dan email.
 ///
-/// Aturan input ada di `Validators`, request API ada di `ProfileRepository`.
-/// Screen ini tidak tahu bagaimana data disimpan.
+/// Password tidak bisa diubah di sini (butuh alur reset sendiri) dan role
+/// tidak bisa diubah sama sekali dari aplikasi — keduanya sengaja tidak
+/// ditawarkan, bukan cuma disembunyikan.
 class ProfileFormScreen extends ConsumerStatefulWidget {
   const ProfileFormScreen({super.key});
 
@@ -27,27 +28,20 @@ class ProfileFormScreen extends ConsumerStatefulWidget {
 
 class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _firstName;
-  late final TextEditingController _lastName;
+  late final TextEditingController _name;
   late final TextEditingController _email;
 
   @override
   void initState() {
     super.initState();
-    // Prefill dari sesi berjalan supaya user tidak mengetik ulang.
     final user = ref.read(currentUserProvider);
-    final parts = (user?.name ?? '').split(' ');
-    _firstName = TextEditingController(text: parts.first);
-    _lastName = TextEditingController(
-      text: parts.length > 1 ? parts.sublist(1).join(' ') : '',
-    );
+    _name = TextEditingController(text: user?.name ?? '');
     _email = TextEditingController(text: user?.email ?? '');
   }
 
   @override
   void dispose() {
-    _firstName.dispose();
-    _lastName.dispose();
+    _name.dispose();
     _email.dispose();
     super.dispose();
   }
@@ -61,8 +55,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
 
     await ref.read(profileUpdateProvider.notifier).save(
           current: current,
-          firstName: _firstName.text,
-          lastName: _lastName.text,
+          name: _name.text,
           email: _email.text,
         );
   }
@@ -73,7 +66,6 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     final isLoading = updateAsync.isLoading;
 
     ref.listen<AsyncValue<AuthUser?>>(profileUpdateProvider, (previous, next) {
-      // P8: setiap aksi memberi umpan balik, termasuk sukses & gagal.
       if (next.hasError) {
         AppFeedback.error(context, next.error.toString());
         return;
@@ -139,23 +131,13 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AppTextField(
-                          label: 'Nama Depan',
-                          hint: 'William',
-                          controller: _firstName,
+                          label: 'Nama',
+                          hint: 'Nama lengkap',
+                          controller: _name,
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.next,
                           validator: (v) =>
-                              Validators.required(v, 'Nama depan'),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        AppTextField(
-                          label: 'Nama Belakang',
-                          hint: 'She',
-                          controller: _lastName,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
-                          validator: (v) =>
-                              Validators.required(v, 'Nama belakang'),
+                              Validators.minLength(v, label: 'Nama', min: 2),
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         AppTextField(
@@ -165,6 +147,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.done,
                           validator: Validators.email,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Password dan peran akun tidak bisa diubah dari sini.',
+                          style: AppTextStyles.caption,
                         ),
                         const SizedBox(height: AppSpacing.xxl),
                         PrimaryButton(

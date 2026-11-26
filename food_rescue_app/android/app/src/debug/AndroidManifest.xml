@@ -4,4 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Hanya build debug: backend lokal memakai HTTP polos (10.0.2.2:8080).
+         Release tetap menolak cleartext, jadi build produksi wajib HTTPS. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

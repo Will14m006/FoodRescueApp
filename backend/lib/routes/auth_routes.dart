@@ -157,6 +157,76 @@ Router authRoutes({
 
   router.get('/auth/me', meHandler);
 
+  /// Ubah nama dan/atau email sendiri.
+  ///
+  /// Role, id, dan password **tidak** bisa diubah di sini: role hanya lewat
+  /// seed CLI, password butuh alur reset tersendiri.
+  router.patch(
+    '/auth/me',
+    authGuard(jwt)((Request request) async {
+      final auth = authenticatedUser(request);
+      final body = await readJsonObject(request);
+
+      // Field yang tidak boleh diubah lewat endpoint ini ditolak terang-terangan
+      // (bukan diabaikan diam-diam): klien yang mengira berhasil menaikkan
+      // perannya sendiri harus tahu bahwa itu tidak terjadi.
+      const forbidden = {'role', 'password', 'passwordHash', 'id'};
+      final attempted = forbidden.where(body.containsKey).toList();
+      if (attempted.isNotEmpty) {
+        throw ApiException(
+          422,
+          'Field tidak bisa diubah dari sini: ${attempted.join(', ')}.',
+          code: 'immutable_field',
+        );
+      }
+
+      final user = await (db.select(db.users)
+            ..where((t) => t.id.equals(auth.id)))
+          .getSingleOrNull();
+      if (user == null) {
+        throw const ApiException(
+          401,
+          'Sesi tidak valid. Silakan login ulang.',
+          code: 'unauthorized',
+        );
+      }
+
+      var name = user.name;
+      if (body.containsKey('name')) {
+        name = requireString(body, 'name', maxLength: 120);
+      }
+
+      var email = user.email;
+      if (body.containsKey('email')) {
+        email = normalizeEmail(requireString(body, 'email', maxLength: 254));
+        if (!isValidEmail(email)) {
+          throw const ApiException(
+            422,
+            'Format email tidak valid.',
+            code: 'invalid_email',
+          );
+        }
+        if (email != user.email) {
+          final taken = await (db.select(db.users)
+                ..where((t) => t.email.equals(email)))
+              .getSingleOrNull();
+          if (taken != null) {
+            throw const ApiException(
+              409,
+              'Email sudah dipakai akun lain.',
+              code: 'email_taken',
+            );
+          }
+        }
+      }
+
+      final updated = user.copyWith(name: name, email: email);
+      await db.update(db.users).replace(updated);
+
+      return ApiResponse.ok({'user': publicUser(updated)});
+    }),
+  );
+
   return router;
 }
 

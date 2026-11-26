@@ -1,157 +1,113 @@
-// Test untuk P5: Local Data & Persistence.
+// Persistence test: apa yang benar-benar disimpan di perangkat.
 //
-// Menguji:Create, Read, Update, Delete, dan Persistence
-// (data tetap ada setelah repository "dibuka ulang" / aplikasi di-refresh).
+// Setelah sesi 5, data pesanan tinggal di server. Yang masih lokal hanya:
+//   1. sesi (token + profil ringkas)  -> `SessionStore`
+//   2. foto bukti pengambilan         -> `ProofPhotoStore`
 //
-// SharedPreferences di-override dengan instance test sehingga test
-// deterministik dan tidak menyentuh storage asli perangkat.
+// Test ini menjaga dua hal itu tetap bertahan setelah aplikasi "dibuka ulang".
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'package:food_rescue_app/models/order_model.dart';
-import 'package:food_rescue_app/repositories/order_local_repository.dart';
+import 'package:food_rescue_app/core/session/session_store.dart';
+import 'package:food_rescue_app/models/user_role.dart';
+import 'package:food_rescue_app/repositories/auth_repository.dart';
+import 'package:food_rescue_app/repositories/proof_photo_store.dart';
 
-Order _createOrder({
-  required String id,
-  String pickupCode = 'RESCUE-101',
-  OrderStatus status = OrderStatus.pending,
-}) {
-  return Order(
-    id: id,
-    pickupCode: pickupCode,
-    buyerName: 'William',
-    surplusFoodName: 'Paket Roti Sisa Hari Ini',
-    quantity: 2,
-    totalPrice: 30000,
-    status: status,
-    createdAt: DateTime(2026, 10, 9, 19, 30),
-  );
-}
+const _user = AuthUser(
+  id: 7,
+  name: 'William',
+  email: 'william@foodrescue.id',
+  role: UserRole.merchant,
+  token: 'token-abc',
+);
 
 void main() {
-  late SharedPreferencesAsync prefs;
-  late OrderLocalRepositoryImpl repo;
-
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    // Mock storage dengan instance in-memory (API SharedPreferencesAsync).
-    final mock = InMemorySharedPreferencesAsync.empty();
-    SharedPreferencesAsyncPlatform.instance = mock;
-
-    prefs = SharedPreferencesAsync();
-    repo = OrderLocalRepositoryImpl(prefsWithOverrides: [prefs]);
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
   });
 
-  test('Read: awalnya kosong saat belum ada data tersimpan', () async {
-    expect(await repo.loadOrders(), isEmpty);
+  group('SessionStore', () {
+    test('sesi bertahan setelah store dibuka ulang', () async {
+      await SessionStore().write(StoredSession.fromUser(_user));
+
+      // Instance baru = aplikasi dibuka ulang.
+      final restored = await SessionStore().read();
+
+      expect(restored, isNotNull);
+      expect(restored!.token, 'token-abc');
+      expect(restored.id, 7);
+      expect(restored.name, 'William');
+      expect(restored.email, 'william@foodrescue.id');
+      expect(restored.role, UserRole.merchant);
+    });
+
+    test('password tidak pernah ikut tersimpan', () async {
+      await SessionStore().write(StoredSession.fromUser(_user));
+
+      final raw = await SharedPreferencesAsync().getString('food_rescue_session');
+
+      expect(raw, isNotNull);
+      expect(raw!.contains('password'), isFalse);
+      expect(raw.contains('token-abc'), isTrue);
+    });
+
+    test('logout menghapus sesi', () async {
+      final store = SessionStore();
+      await store.write(StoredSession.fromUser(_user));
+      await store.clear();
+
+      expect(await store.read(), isNull);
+    });
+
+    test('data korup dianggap belum login, bukan crash', () async {
+      await SharedPreferencesAsync()
+          .setString('food_rescue_session', '{bukan json');
+
+      expect(await SessionStore().read(), isNull);
+    });
+
+    test('sesi tanpa token ditolak', () async {
+      await SharedPreferencesAsync()
+          .setString('food_rescue_session', '{"id":1,"name":"X"}');
+
+      expect(await SessionStore().read(), isNull);
+    });
   });
 
-  test('Create & Read: pesanan tersimpan dan bisa dibaca kembali', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
+  group('ProofPhotoStore', () {
+    test('foto bertahan setelah store dibuka ulang', () async {
+      await ProofPhotoStore(userId: 7).save(42, 'BASE64FOTO');
 
-    final orders = await repo.loadOrders();
+      expect(await ProofPhotoStore(userId: 7).read(42), 'BASE64FOTO');
+    });
 
-    expect(orders.length, 1);
-    expect(orders.first.id, 'ord-1');
-    expect(orders.first.pickupCode, 'RESCUE-101');
-    expect(orders.first.buyerName, 'William');
-    expect(orders.first.quantity, 2);
-    expect(orders.first.totalPrice, 30000);
-    expect(orders.first.status, OrderStatus.pending);
-  });
+    test('beberapa pesanan disimpan tanpa saling menimpa', () async {
+      final store = ProofPhotoStore(userId: 7);
+      await store.save(1, 'A');
+      await store.save(2, 'B');
+      await store.save(1, 'A2');
 
-  test('Update: status pesanan bisa diubah menjadi completed', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.updateOrderStatus('ord-1', OrderStatus.completed);
+      expect(await store.loadAll(), {'1': 'A2', '2': 'B'});
+    });
 
-    final orders = await repo.loadOrders();
+    test('foto milik akun lain tidak terbaca', () async {
+      await ProofPhotoStore(userId: 7).save(42, 'FOTO');
 
-    expect(orders.first.status, OrderStatus.completed);
-    // Field lain tetap utuh, hanya status yang berubah.
-    expect(orders.first.pickupCode, 'RESCUE-101');
-    expect(orders.first.buyerName, 'William');
-  });
+      expect(await ProofPhotoStore(userId: 8).read(42), isNull);
+    });
 
-  test('Update: status pesanan bisa diubah menjadi cancelled', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.updateOrderStatus('ord-1', OrderStatus.cancelled);
+    test('penghapusan hanya menyentuh akun sendiri', () async {
+      await ProofPhotoStore(userId: 7).save(1, 'A');
+      await ProofPhotoStore(userId: 8).save(1, 'B');
 
-    expect((await repo.loadOrders()).first.status, OrderStatus.cancelled);
-  });
+      await ProofPhotoStore(userId: 7).clear();
 
-  test('Delete: pesanan bisa dihapus dari storage', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.saveOrder(_createOrder(id: 'ord-2', pickupCode: 'RESCUE-102'));
-    expect(await repo.loadOrders(), hasLength(2));
-
-    await repo.deleteOrder('ord-1');
-
-    final orders = await repo.loadOrders();
-    expect(orders, hasLength(1));
-    expect(orders.first.id, 'ord-2');
-    expect(orders.first.pickupCode, 'RESCUE-102');
-  });
-
-  test(
-      'Persistence: data tetap ada setelah repository di-instantiate ulang '
-      "(simulasi aplikasi ditutup lalu dibuka lagi)", () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.updateOrderStatus('ord-1', OrderStatus.completed);
-
-    // Simulasi restart: instance lama dibuang, instance baru dibuat dengan
-    // storage yang sama. Kalau data hanya di memory, ini pasti kosong.
-    final reopenedRepo = OrderLocalRepositoryImpl(prefsWithOverrides: [prefs]);
-
-    final orders = await reopenedRepo.loadOrders();
-
-    expect(orders, hasLength(1));
-    expect(orders.first.id, 'ord-1');
-    expect(orders.first.status, OrderStatus.completed);
-  });
-
-  test('Persistence: data bertahan setelah browser di-refresh (web storage)',
-      () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-
-    // SharedPreferencesAsync memakai cache in-memory, lalu membaca dari
-    // storage saat pertama kali diakses. Simulasi "refresh" dengan
-    // mengosongkan cache lalu membaca ulang dari storage.
-    final reopenedPrefs = SharedPreferencesAsync();
-    final reopenedRepo =
-        OrderLocalRepositoryImpl(prefsWithOverrides: [reopenedPrefs]);
-
-    final orders = await reopenedRepo.loadOrders();
-
-    expect(orders, hasLength(1));
-    expect(orders.first.id, 'ord-1');
-  });
-
-  test('Create multiple: pesanan baru selalu muncul di urutan teratas', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.saveOrder(_createOrder(id: 'ord-2'));
-
-    final orders = await repo.loadOrders();
-
-    expect(orders.first.id, 'ord-2');
-    expect(orders.last.id, 'ord-1');
-  });
-
-  test('Clear: semua pesanan bisa dihapus sekaligus', () async {
-    await repo.saveOrder(_createOrder(id: 'ord-1'));
-    await repo.saveOrder(_createOrder(id: 'ord-2'));
-
-    await repo.clearAll();
-
-    expect(await repo.loadOrders(), isEmpty);
-  });
-
-  test('Serialisasi: Order toJson/fromJson bersifat round-trip', () {
-    final order = _createOrder(id: 'ord-1');
-    final json = order.toJson();
-
-    expect(Order.fromJson(json), equals(order));
+      expect(await ProofPhotoStore(userId: 7).loadAll(), isEmpty);
+      expect(await ProofPhotoStore(userId: 8).read(1), 'B');
+    });
   });
 }

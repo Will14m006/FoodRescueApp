@@ -1,24 +1,25 @@
-// Widget test untuk Fitur 2: Booking / Pemesanan.
+﻿// Widget test Fitur 2: Booking.
 //
-// Menguji: validasi input (nama & jumlah), tombol non-aktif saat loading
-// (anti double-tap), dan state sukses yang menampilkan kode pick-up.
-// OrderRepository di-override dengan versi cepat & terkontrol.
+// Alur baru: nama tidak lagi diketik (server memakai nama akun), harga
+// dihitung server. Yang diuji: validasi jumlah, konfirmasi, anti double-tap,
+// dan layar sukses berisi kode pick-up dari server.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:food_rescue_app/models/surplus_food_model.dart';
 import 'package:food_rescue_app/providers/auth_provider.dart';
-import 'package:food_rescue_app/providers/booking_provider.dart';
+import 'package:food_rescue_app/providers/orders_provider.dart';
 import 'package:food_rescue_app/repositories/auth_repository.dart';
 import 'package:food_rescue_app/repositories/order_repository.dart';
 import 'package:food_rescue_app/screens/booking_screen.dart';
+import 'package:food_rescue_app/widgets/primary_button.dart';
+
+import 'support/fakes.dart';
 
 const _testFood = SurplusFood(
-  id: 't-1',
+  id: 1,
   merchantName: 'Roti O Bakso',
   name: 'Paket Roti Sisa Hari Ini',
   description: 'Isi 6 pcs roti.',
@@ -29,158 +30,161 @@ const _testFood = SurplusFood(
   category: FoodCategory.bakery,
 );
 
+class _LoggedInNotifier extends AuthNotifier {
+  @override
+  Future<AuthUser?> build() async => testUser;
+}
+
 Widget _wrapApp(Widget child, List<Override> overrides) {
   return ProviderScope(
     overrides: overrides,
-    child: MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: child,
-    ),
+    child: MaterialApp(debugShowCheckedModeBanner: false, home: child),
   );
 }
 
-List<Override> _fastRepo({Duration delay = const Duration(milliseconds: 10)}) {
-  return [
-    orderRepositoryProvider.overrideWithValue(FakeOrderRepository(delay: delay)),
-    // P10 fix #4: booking butuh user login (userId tidak lagi hard-coded).
-    authProvider.overrideWith(_LoggedInAuthNotifier.new),
-  ];
-}
+List<Override> _overrides({
+  Duration delay = const Duration(milliseconds: 10),
+}) =>
+    [
+      orderRepositoryProvider.overrideWithValue(FakeOrderRepository(delay: delay)),
+      authProvider.overrideWith(_LoggedInNotifier.new),
+    ];
 
-class _LoggedInAuthNotifier extends AuthNotifier {
-  @override
-  AuthUser? build() => const AuthUser(
-        id: 1,
-        name: 'William',
-        email: 'william@test.com',
-        token: 'token-test',
-      );
-}
-
-Future<void> _scrollToButton(WidgetTester tester) async {
+Future<void> _tapOrder(WidgetTester tester) async {
   await tester.scrollUntilVisible(
     find.text('Pesan Sekarang'),
     200,
     scrollable: find.byType(Scrollable).first,
   );
+  await tester.tap(find.text('Pesan Sekarang'));
+  await tester.pumpAndSettle();
 }
 
 void main() {
-  setUp(() {
-    // Booking sukses kini juga menyimpan ke local storage, jadi platform
-    // instance SharedPreferencesAsync perlu disiapkan.
-    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
-  });
+  testWidgets('validasi: jumlah kosong ditolak', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-  testWidgets('validasi: pesan kosong menampilkan error pada field',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
+    await tester.pumpWidget(
+      _wrapApp(const BookingScreen(food: _testFood), _overrides()),
+    );
     await tester.pumpAndSettle();
 
-    await _scrollToButton(tester);
-
-    // Field nama dikosongkan lalu tekan tombol Pesan.
     await tester.enterText(find.byType(TextFormField).at(0), '');
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
+    await _tapOrder(tester);
 
-    expect(find.text('Nama pemesan wajib diisi.'), findsOneWidget);
-  });
-
-  testWidgets('validasi: nama 2 karakter diterima (tidak ada minimal)',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextFormField).at(0), 'Wi');
-    await _scrollToButton(tester);
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
-
-    // Tidak ada error validasi nama; langsung masuk dialog konfirmasi.
-    expect(find.text('Nama minimal 3 karakter.'), findsNothing);
-    expect(find.text('Konfirmasi Pesanan'), findsOneWidget);
+    expect(find.textContaining('wajib diisi'), findsOneWidget);
+    // Dialog konfirmasi tidak boleh muncul kalau validasi gagal.
+    expect(find.text('Konfirmasi Pesanan'), findsNothing);
   });
 
   testWidgets('validasi: jumlah melebihi kuota ditolak',
       (WidgetTester tester) async {
-    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _wrapApp(const BookingScreen(food: _testFood), _overrides()),
+    );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'William');
-    await tester.enterText(find.byType(TextFormField).at(1), '99');
-    await _scrollToButton(tester);
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(0), '9');
+    await _tapOrder(tester);
 
-    expect(find.text('Melebihi batas maksimal (4).'), findsOneWidget);
+    expect(find.textContaining('maksimal'), findsOneWidget);
+    expect(find.text('Konfirmasi Pesanan'), findsNothing);
   });
 
-  testWidgets('state loading: tombol non-aktif & berputar saat submit (anti double-tap)',
+  testWidgets('batal di dialog konfirmasi: tidak ada pesanan dibuat',
       (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = FakeOrderRepository(delay: const Duration(milliseconds: 10));
     await tester.pumpWidget(
       _wrapApp(
         const BookingScreen(food: _testFood),
-        _fastRepo(delay: const Duration(seconds: 30)),
+        [
+          orderRepositoryProvider.overrideWithValue(repo),
+          authProvider.overrideWith(_LoggedInNotifier.new),
+        ],
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'William');
-    await _scrollToButton(tester);
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
-
-    // Dialog konfirmasi muncul lebih dulu.
+    await _tapOrder(tester);
     expect(find.text('Konfirmasi Pesanan'), findsOneWidget);
-    await tester.tap(find.text('Ya, Pesan'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200)); // masih loading (delay 30 detik)
-
-    // Saat loading: muncul indikator putar & teks "Sedang memproses pesanan...".
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Sedang memproses pesanan...'), findsOneWidget);
-    // Tombol sedang non-aktif (onPressed null) sehingga double tap diabaikan.
-    final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-    expect(button.onPressed, isNull);
-
-    // Bersihkan timer tersisa supaya test bisa selesai dengan rapi.
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('konfirmasi: tombol Periksa Lagi membatalkan pesanan',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextFormField).at(0), 'William');
-    await _scrollToButton(tester);
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Periksa Lagi'));
     await tester.pumpAndSettle();
 
-    // Dialog tertutup dan tidak ada pesanan yang dibuat.
-    expect(find.text('Konfirmasi Pesanan'), findsNothing);
-    expect(find.text('Pesanan Berhasil! 🎉'), findsNothing);
+    // Tetap di form, layar sukses tidak muncul.
+    expect(find.text('KODE PICK-UP'), findsNothing);
+    expect(repo.createCalls, 0);
   });
 
-  testWidgets('state sukses: kode pick-up ditampilkan setelah submit berhasil',
+  testWidgets('sukses: kode pick-up dari server ditampilkan',
       (WidgetTester tester) async {
-    await tester.pumpWidget(_wrapApp(const BookingScreen(food: _testFood), _fastRepo()));
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = FakeOrderRepository(delay: const Duration(milliseconds: 10));
+    await tester.pumpWidget(
+      _wrapApp(
+        const BookingScreen(food: _testFood),
+        [
+          orderRepositoryProvider.overrideWithValue(repo),
+          authProvider.overrideWith(_LoggedInNotifier.new),
+        ],
+      ),
+    );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'William');
-    await _scrollToButton(tester);
-    await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pumpAndSettle();
-
+    await _tapOrder(tester);
     await tester.tap(find.text('Ya, Pesan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pesanan Berhasil! 🎉'), findsOneWidget);
-    expect(find.text('RESCUE-101'), findsOneWidget);
-    expect(find.text('Kembali ke Katalog'), findsOneWidget);
+    expect(find.text('KODE PICK-UP'), findsOneWidget);
+    expect(find.textContaining('RESCUE-'), findsWidgets);
+    expect(repo.createCalls, 1);
+    expect(repo.lastQuantity, 1);
+  });
+
+  testWidgets('loading: tombol nonaktif saat request berjalan (anti double-tap)',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = FakeOrderRepository(delay: const Duration(seconds: 2));
+    await tester.pumpWidget(
+      _wrapApp(
+        const BookingScreen(food: _testFood),
+        [
+          orderRepositoryProvider.overrideWithValue(repo),
+          authProvider.overrideWith(_LoggedInNotifier.new),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tapOrder(tester);
+    await tester.tap(find.text('Ya, Pesan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Saat loading, PrimaryButton menonaktifkan dirinya (onPressed = null),
+    // jadi tap kedua diabaikan Flutter.
+    final loadingButton = tester.widget<PrimaryButton>(
+      find.byType(PrimaryButton),
+    );
+    expect(loadingButton.isLoading, isTrue);
+
+    await tester.pumpAndSettle();
+    expect(repo.createCalls, 1);
   });
 }

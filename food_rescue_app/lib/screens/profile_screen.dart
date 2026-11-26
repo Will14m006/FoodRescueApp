@@ -6,6 +6,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/ui/app_feedback.dart';
 import '../providers/auth_provider.dart';
+import '../providers/orders_provider.dart';
 import '../routes/app_routes.dart';
 import '../widgets/responsive_body.dart';
 
@@ -36,7 +37,7 @@ class ProfileScreen extends ConsumerWidget {
 
     if (confirmed != true) return;
 
-    ref.read(authProvider.notifier).logout();
+    await ref.read(authProvider.notifier).logout();
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -123,17 +124,35 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs + 2),
                   Text(
-                    user?.email ?? 'Pembeli • Food Rescuer 🌱',
+                    user?.email ?? 'Belum login',
                     style: AppTextStyles.body.copyWith(
                       color: AppColors.textOnPrimary.withValues(alpha: 0.9),
                       fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.textOnPrimary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      user?.role.label ?? '-',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textOnPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // === Statistik ===
+            // === Statistik (dari server, bukan angka karangan) ===
             ResponsiveBody(
               maxWidth: 720,
               child: Padding(
@@ -145,9 +164,17 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    _StatCard(emoji: '🍽️', value: '12', label: 'Makanan Diselamatkan'),
+                    _StatCard(
+                      emoji: '🧾',
+                      value: '${ref.watch(ordersProvider).valueOrNull?.length ?? 0}',
+                      label: 'Total Pesanan',
+                    ),
                     const SizedBox(width: AppSpacing.md + 2),
-                    _StatCard(emoji: '💵', value: 'Rp 180rb', label: 'Total Hemat'),
+                    _StatCard(
+                      emoji: '📦',
+                      value: '${ref.watch(activeOrdersProvider).length}',
+                      label: 'Sedang Berjalan',
+                    ),
                   ],
                 ),
               ),

@@ -1,3 +1,6 @@
+import '../core/network/api_exception.dart';
+
+/// Status pesanan — harus sama dengan `OrderStatus` di backend.
 enum OrderStatus { pending, completed, cancelled }
 
 extension OrderStatusX on OrderStatus {
@@ -23,7 +26,7 @@ extension OrderStatusX on OrderStatus {
     }
   }
 
-  static OrderStatus fromJsonValue(String value) {
+  static OrderStatus fromJsonValue(String? value) {
     switch (value) {
       case 'completed':
         return OrderStatus.completed;
@@ -49,21 +52,22 @@ extension OrderStatusX on OrderStatus {
 }
 
 class Order {
-  final String id;
+  final int id;
   final String pickupCode;
+  final int buyerId;
   final String buyerName;
+  final int foodId;
   final String surplusFoodName;
+  final String merchantName;
   final int quantity;
   final int totalPrice;
   final OrderStatus status;
   final DateTime createdAt;
 
-  /// P10 fix #3: bukti pengambilan (foto kamera) disimpan sebagai base64
-  /// supaya tetap ada setelah aplikasi ditutup. Null = belum ada bukti.
+  /// Bukti pengambilan (foto kamera) — **hanya lokal**, disimpan sebagai
+  /// base64 di perangkat. Backend tidak menyimpan gambar; kode pick-up tetap
+  /// satu-satunya bukti yang diverifikasi server.
   final String? proofPhoto;
-
-  /// P10 fix #4: pemilik pesanan. Dipakai untuk memisahkan riwayat per akun.
-  final int? userId;
 
   const Order({
     required this.id,
@@ -74,90 +78,129 @@ class Order {
     required this.totalPrice,
     required this.status,
     required this.createdAt,
+    this.buyerId = 0,
+    this.foodId = 0,
+    this.merchantName = 'Mitra Food Rescue',
     this.proofPhoto,
-    this.userId,
   });
 
   Order copyWith({
     OrderStatus? status,
     String? proofPhoto,
-    int? userId,
+    String? buyerName,
+    String? surplusFoodName,
   }) {
     return Order(
       id: id,
       pickupCode: pickupCode,
-      buyerName: buyerName,
-      surplusFoodName: surplusFoodName,
+      buyerId: buyerId,
+      buyerName: buyerName ?? this.buyerName,
+      foodId: foodId,
+      surplusFoodName: surplusFoodName ?? this.surplusFoodName,
+      merchantName: merchantName,
       quantity: quantity,
       totalPrice: totalPrice,
       status: status ?? this.status,
       createdAt: createdAt,
       proofPhoto: proofPhoto ?? this.proofPhoto,
-      userId: userId ?? this.userId,
     );
   }
+
+  /// Dari `GET /orders` (dan `POST /orders`).
+  factory Order.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final pickupCode = json['pickupCode'];
+    final quantity = json['quantity'];
+    final totalPrice = json['totalPrice'];
+    final createdAt = json['createdAt'];
+
+    if (id is! int) throw const ApiException('ID pesanan tidak valid.');
+    if (pickupCode is! String || pickupCode.isEmpty) {
+      throw const ApiException('Kode pick-up tidak diterima.');
+    }
+    if (quantity is! int || quantity < 1) {
+      throw const ApiException('Jumlah pesanan tidak valid.');
+    }
+    if (totalPrice is! int || totalPrice < 0) {
+      throw const ApiException('Total pesanan tidak valid.');
+    }
+    final created = createdAt is String ? DateTime.tryParse(createdAt) : null;
+    if (created == null) {
+      throw const ApiException('Waktu pesanan tidak valid.');
+    }
+
+    return Order(
+      id: id,
+      pickupCode: pickupCode,
+      buyerId: json['buyerId'] as int? ?? 0,
+      buyerName: (json['buyerName'] as String?)?.trim().isNotEmpty == true
+          ? json['buyerName'] as String
+          : 'Pembeli',
+      foodId: json['foodId'] as int? ?? 0,
+      surplusFoodName:
+          (json['foodName'] as String?)?.trim().isNotEmpty == true
+              ? json['foodName'] as String
+              : 'Makanan surplus',
+      merchantName:
+          (json['merchantName'] as String?)?.trim().isNotEmpty == true
+              ? json['merchantName'] as String
+              : 'Mitra Food Rescue',
+      quantity: quantity,
+      totalPrice: totalPrice,
+      status: OrderStatusX.fromJsonValue(json['status'] as String?),
+      createdAt: created,
+    );
+  }
+
+  /// Serialisasi untuk cache lokal di perangkat.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'pickupCode': pickupCode,
+        'buyerId': buyerId,
+        'buyerName': buyerName,
+        'foodId': foodId,
+        'surplusFoodName': surplusFoodName,
+        'merchantName': merchantName,
+        'quantity': quantity,
+        'totalPrice': totalPrice,
+        'status': status.jsonValue,
+        'createdAt': createdAt.toIso8601String(),
+        if (proofPhoto != null) 'proofPhoto': proofPhoto,
+      };
+
+  factory Order.fromCacheJson(Map<String, dynamic> json) =>
+      Order.fromJson(json);
 
   @override
   bool operator ==(Object other) {
     return other is Order &&
         other.id == id &&
         other.pickupCode == pickupCode &&
+        other.buyerId == buyerId &&
         other.buyerName == buyerName &&
+        other.foodId == foodId &&
         other.surplusFoodName == surplusFoodName &&
+        other.merchantName == merchantName &&
         other.quantity == quantity &&
         other.totalPrice == totalPrice &&
         other.status == status &&
         other.createdAt == createdAt &&
-        other.proofPhoto == proofPhoto &&
-        other.userId == userId;
+        other.proofPhoto == proofPhoto;
   }
 
   @override
   int get hashCode => Object.hash(
         id,
         pickupCode,
+        buyerId,
         buyerName,
+        foodId,
         surplusFoodName,
+        merchantName,
         quantity,
         totalPrice,
         status,
         createdAt,
         proofPhoto,
-        userId,
       );
-
-  /// Serialisasi ke JSON supaya bisa disimpan di local storage.
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'pickupCode': pickupCode,
-      'buyerName': buyerName,
-      'surplusFoodName': surplusFoodName,
-      'quantity': quantity,
-      'totalPrice': totalPrice,
-      'status': status.jsonValue,
-      'createdAt': createdAt.toIso8601String(),
-      if (proofPhoto != null) 'proofPhoto': proofPhoto,
-      if (userId != null) 'userId': userId,
-    };
-  }
-
-  /// Deserialisasi dari local storage.
-  ///
-  /// Field baru (`proofPhoto`, `userId`) opsional supaya data lama yang sudah
-  /// tersimpan di perangkat pengguna tetap bisa dibaca.
-  factory Order.fromJson(Map<String, dynamic> json) {
-    return Order(
-      id: json['id'] as String,
-      pickupCode: json['pickupCode'] as String,
-      buyerName: json['buyerName'] as String,
-      surplusFoodName: json['surplusFoodName'] as String,
-      quantity: json['quantity'] as int,
-      totalPrice: json['totalPrice'] as int,
-      status: OrderStatusX.fromJsonValue(json['status'] as String),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      proofPhoto: json['proofPhoto'] as String?,
-      userId: json['userId'] as int?,
-    );
-  }
 }

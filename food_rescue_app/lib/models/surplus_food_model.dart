@@ -1,6 +1,11 @@
+import '../core/network/api_exception.dart';
 import '../core/utils/formatters.dart';
 
 /// Kategori makanan surplus untuk filter di katalog.
+///
+/// Backend tidak menyimpan kategori (tabel `SurplusFoods` hanya punya nama),
+/// jadi kategorinya diturunkan dari nama. Tujuannya semata membantu penyaringan
+/// di UI, bukan data bisnis.
 enum FoodCategory {
   all('Semua'),
   bakery('Roti & Bakery'),
@@ -12,19 +17,9 @@ enum FoodCategory {
   final String label;
 }
 
-/// Dilempar ketika JSON dari API tidak sesuai kontrak model.
-///
-/// Dipakai oleh unit test "model invalid" dan "JSON rusak".
-class InvalidModelException implements Exception {
-  const InvalidModelException(this.message);
-  final String message;
-
-  @override
-  String toString() => 'Data dari server tidak valid: $message';
-}
-
 class SurplusFood {
-  final String id;
+  final int id;
+  final int merchantId;
   final String merchantName;
   final String name;
   final String description;
@@ -32,8 +27,7 @@ class SurplusFood {
   final int discountPrice;
   final int quota;
   final String pickupWindow;
-  final double rating;
-  final int sold;
+  final bool isActive;
   final FoodCategory category;
   final String emoji;
 
@@ -46,13 +40,13 @@ class SurplusFood {
     required this.discountPrice,
     required this.quota,
     required this.pickupWindow,
-    required this.category,
-    this.rating = 4.8,
-    this.sold = 0,
+    this.merchantId = 0,
+    this.isActive = true,
+    this.category = FoodCategory.main,
     this.emoji = '🍽️',
   });
 
-  bool get isAvailable => quota > 0;
+  bool get isAvailable => isActive && quota > 0;
 
   /// Persentase diskon, misal 62 (%) dari Rp 40.000 -> Rp 15.000.
   int get discountPercent {
@@ -64,61 +58,56 @@ class SurplusFood {
 
   String get formattedDiscountPrice => Formatters.rupiah(discountPrice);
 
-  /// Mapping dari JSON API (dummyjson `/products/category/groceries`).
+  /// Mapping dari `GET /foods`.
   ///
-  /// Melempar [InvalidModelException] kalau field wajib tidak ada atau
-  /// tipenya salah — supaya data rusak tidak diam-diam jadi objek kosong.
+  /// Melempar [ApiException] kalau field wajib hilang atau tipenya salah —
+  /// data rusak tidak boleh diam-diam menjadi objek kosong.
   factory SurplusFood.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
-    final title = json['title'];
-    final price = json['price'];
-    final stock = json['stock'];
+    final name = json['name'];
+    final originalPrice = json['originalPrice'];
+    final discountPrice = json['discountPrice'];
+    final quota = json['quota'];
 
-    if (id == null) throw const InvalidModelException('field "id" tidak ada');
-    if (title is! String || title.trim().isEmpty) {
-      throw const InvalidModelException('field "title" kosong / bukan teks');
+    if (id is! int) throw const ApiException('Field "id" makanan tidak valid.');
+    if (name is! String || name.trim().isEmpty) {
+      throw const ApiException('Nama makanan kosong.');
     }
-    if (price is! num) {
-      throw const InvalidModelException('field "price" bukan angka');
+    if (originalPrice is! int || discountPrice is! int) {
+      throw const ApiException('Harga makanan tidak valid.');
     }
-    if (stock is! int) {
-      throw const InvalidModelException('field "stock" bukan bilangan bulat');
+    if (quota is! int || quota < 0) {
+      throw const ApiException('Kuota makanan tidak valid.');
     }
-
-    // Harga API dalam USD -> dikonversi ke rupiah untuk tampilan aplikasi.
-    final original = (price * _usdToIdr).round();
-    final discount = (json['discountPercentage'] as num?)?.toDouble() ?? 0;
-    final discounted = (original * (1 - discount / 100)).round();
-    final category = _categoryFor(json['category'] as String?);
 
     return SurplusFood(
-      id: id.toString(),
-      merchantName: _merchantFor(json['category'] as String?),
-      name: title,
+      id: id,
+      merchantId: json['merchantId'] as int? ?? 0,
+      merchantName:
+          (json['merchantName'] as String?)?.trim().isNotEmpty == true
+              ? json['merchantName'] as String
+              : 'Mitra Food Rescue',
+      name: name.trim(),
       description: (json['description'] as String?)?.trim().isNotEmpty == true
-          ? json['description'] as String
+          ? (json['description'] as String).trim()
           : 'Makanan surplus siap diselamatkan hari ini.',
-      originalPrice: original,
-      discountPrice: discounted,
-      // P10 fix #5: kuota = stok nyata dari API. Dulu nilainya dikarang
-      // (`1 + stock % ceiling`) sehingga angka "sisa porsi" tidak pernah
-      // cocok dengan ketersediaan sebenarnya.
-      quota: stock < 0 ? 0 : stock,
-      pickupWindow: _pickupWindowFor(id is int ? id : 0),
-      category: category,
-      rating: (json['rating'] as num?)?.toDouble() ?? 0,
-      sold: (json['reviews'] as List?)?.length ?? 0,
-      emoji: _emojiFor(json['category'] as String?, title),
+      originalPrice: originalPrice,
+      discountPrice: discountPrice,
+      quota: quota,
+      pickupWindow: (json['pickupWindow'] as String?)?.trim().isNotEmpty == true
+          ? (json['pickupWindow'] as String).trim()
+          : 'Lihat di toko',
+      isActive: json['isActive'] as bool? ?? true,
+      category: _categoryFor(name),
+      emoji: _emojiFor(name),
     );
   }
 
   /// Salinan dengan kuota berkurang setelah pesanan berhasil.
-  ///
-  /// P10 fix #5: katalog ikut diperbarui supaya angka sisa porsi tidak
-  /// "beku" setelah user memesan.
   SurplusFood copyWithQuota(int newQuota) {
     return SurplusFood(
       id: id,
+      merchantId: merchantId,
       merchantName: merchantName,
       name: name,
       description: description,
@@ -126,63 +115,43 @@ class SurplusFood {
       discountPrice: discountPrice,
       quota: newQuota < 0 ? 0 : newQuota,
       pickupWindow: pickupWindow,
+      isActive: isActive,
       category: category,
-      rating: rating,
-      sold: sold,
       emoji: emoji,
     );
   }
 
-  static const _usdToIdr = 16000;
-
-  static String _merchantFor(String? category) {
-    switch (category) {
-      case 'groceries':
-        return 'Food Rescue Market';
-      case 'fruits':
-        return 'Kebun Segar';
-      default:
-        return 'Mitra Food Rescue';
+  static FoodCategory _categoryFor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('roti') ||
+        lower.contains('bakery') ||
+        lower.contains('donat') ||
+        lower.contains('croissant')) {
+      return FoodCategory.bakery;
     }
-  }
-
-  static FoodCategory _categoryFor(String? category) {
-    switch (category) {
-      case 'groceries':
-        return FoodCategory.main;
-      case 'fruits':
-        return FoodCategory.snack;
-      default:
-        return FoodCategory.main;
+    if (lower.contains('jus') ||
+        lower.contains('teh') ||
+        lower.contains('kopi') ||
+        lower.contains('minum') ||
+        lower.contains('susu')) {
+      return FoodCategory.drink;
     }
+    if (lower.contains('pastry') || lower.contains('snack')) {
+      return FoodCategory.snack;
+    }
+    return FoodCategory.main;
   }
 
-  /// Jam ambil **placeholder demo**.
-  ///
-  /// P10 fix #5: dummyjson tidak menyediakan jam operasional merchant, jadi
-  /// nilai ini tetap diturunkan dari id produk dan ditandai sebagai estimasi
-  /// di UI — bukan diklaim sebagai jadwal asli.
-  static String _pickupWindowFor(int id) {
-    const windows = [
-      '17:00 - 19:00',
-      '18:00 - 20:00',
-      '19:00 - 21:00',
-      '20:00 - 22:00',
-    ];
-    return windows[id % windows.length];
-  }
-
-  static String _emojiFor(String? category, String title) {
-    final lower = title.toLowerCase();
-    if (lower.contains('apple') || lower.contains('kiwi')) return '🍎';
-    if (lower.contains('milk')) return '🥛';
-    if (lower.contains('juice')) return '🥤';
-    if (lower.contains('coffee')) return '☕';
-    if (lower.contains('egg')) return '🥚';
-    if (lower.contains('bread')) return '🍞';
-    if (lower.contains('meat') || lower.contains('steak')) return '🍖';
-    if (lower.contains('fish')) return '🐟';
-    if (category == 'groceries') return '🛒';
+  static String _emojiFor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('nasi')) return '🍚';
+    if (lower.contains('mie') || lower.contains('bakmi')) return '🍜';
+    if (lower.contains('roti') || lower.contains('donat')) return '🍞';
+    if (lower.contains('jus') || lower.contains('minum')) return '🥤';
+    if (lower.contains('teh') || lower.contains('kopi')) return '☕';
+    if (lower.contains('ayam')) return '🍗';
+    if (lower.contains('ikan')) return '🐟';
+    if (lower.contains('buah')) return '🍎';
     return '🍽️';
   }
 }

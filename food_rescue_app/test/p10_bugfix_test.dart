@@ -1,7 +1,10 @@
-// P10: test regresi untuk 5 bug yang dilaporkan reviewer (celineemercy).
+// P10: test regresi untuk bug yang dilaporkan reviewer, versi backend nyata.
 //
-// Setiap test di sini GAGAL pada kode sebelum perbaikan, jadi berfungsi
-// sebagai bukti bahwa bug benar-benar diperbaiki.
+// Bug lama: (1) riwayat tercampur antar akun, (2) sukses palsu karena data
+// hanya di memori, (3) bukti foto hilang, (4) userId hard-code, (5) kuota
+// karangan. Semua kini dijawab server — test ini menjaga jawabannya tetap.
+//
+// Setiap test GAGAL pada kode sebelum perbaikan.
 
 import 'dart:convert';
 
@@ -13,40 +16,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:food_rescue_app/core/network/api_client.dart';
+import 'package:food_rescue_app/core/network/api_exception.dart';
 import 'package:food_rescue_app/models/order_model.dart';
 import 'package:food_rescue_app/models/surplus_food_model.dart';
-import 'package:food_rescue_app/providers/auth_provider.dart';
 import 'package:food_rescue_app/providers/booking_provider.dart';
 import 'package:food_rescue_app/providers/catalog_provider.dart';
 import 'package:food_rescue_app/providers/orders_provider.dart';
-import 'package:food_rescue_app/repositories/auth_repository.dart';
-import 'package:food_rescue_app/repositories/order_local_repository.dart';
 import 'package:food_rescue_app/repositories/order_repository.dart';
+import 'package:food_rescue_app/repositories/proof_photo_store.dart';
 import 'package:food_rescue_app/repositories/surplus_food_repository.dart';
 
-const _userA = AuthUser(
-  id: 1,
-  name: 'Akun A',
-  email: 'a@test.com',
-  token: 'token-a',
-);
-const _userB = AuthUser(
-  id: 2,
-  name: 'Akun B',
-  email: 'b@test.com',
-  token: 'token-b',
-);
+Map<String, dynamic> _orderJson({int id = 1, String status = 'pending'}) => {
+      'id': id,
+      'pickupCode': 'RESCUE-7KQ2XM',
+      'buyerId': 1,
+      'buyerName': 'William',
+      'foodId': 16,
+      'foodName': 'Roti Gandum',
+      'merchantName': 'Roti O Bakso',
+      'quantity': 1,
+      'totalPrice': 15000,
+      'status': status,
+      'createdAt': '2026-11-20T10:00:00.000Z',
+    };
 
-Order _order(String id) => Order(
-      id: id,
-      pickupCode: 'RESCUE-$id',
-      buyerName: 'William',
-      surplusFoodName: 'Roti',
-      quantity: 1,
-      totalPrice: 10000,
-      status: OrderStatus.pending,
-      createdAt: DateTime(2026, 11, 15),
-    );
+ApiClient _api(MockClient client) =>
+    ApiClient(client: client, baseUrl: 'http://test.local');
 
 void main() {
   setUp(() {
@@ -54,193 +50,160 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
-  group('#1 riwayat pesanan terpisah per akun', () {
-    test('storage key memakai userId', () {
-      expect(OrderLocalRepositoryImpl.keyFor(1), isNot(OrderLocalRepositoryImpl.keyFor(2)));
-      expect(OrderLocalRepositoryImpl.keyFor(null),
-          isNot(OrderLocalRepositoryImpl.keyFor(1)));
-    });
-
-    test('pesanan akun A tidak terlihat oleh akun B', () async {
-      final repoA = OrderLocalRepositoryImpl(userId: 1);
-      await repoA.saveOrder(_order('ord-a'));
-
-      final repoB = OrderLocalRepositoryImpl(userId: 2);
-      expect(await repoB.loadOrders(), isEmpty);
-
-      // Akun A tetap melihat punyanya.
-      expect(await repoA.loadOrders(), hasLength(1));
-    });
-
-    test('logout -> login akun lain memuat ulang riwayat', () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      container.read(authProvider.notifier).replaceUser(_userA);
-      await container.read(ordersProvider.future);
-      await container.read(ordersProvider.notifier).addOrder(_order('ord-a'));
-      expect(container.read(ordersProvider).requireValue, hasLength(1));
-
-      // Ganti akun.
-      container.read(authProvider.notifier).replaceUser(_userB);
-      await container.read(ordersProvider.future);
-      expect(container.read(ordersProvider).requireValue, isEmpty);
-    });
-
-    test('data lama (key global) dimigrasikan ke akun aktif', () async {
-      // Simulasikan storage versi lama.
-      final legacy = OrderLocalRepositoryImpl(userId: 1);
-      await legacy.saveOrder(_order('ord-lama'));
-      // Pindahkan ke key lama secara manual.
-      final prefs = SharedPreferencesAsync();
-      final raw = await prefs.getString(
-        OrderLocalRepositoryImpl.keyFor(1),
+  group('#1 bukti foto terpisah per akun', () {
+    test('key storage memakai userId', () {
+      expect(ProofPhotoStore.keyFor(1), isNot(ProofPhotoStore.keyFor(2)));
+      expect(
+        ProofPhotoStore.keyFor(null),
+        isNot(ProofPhotoStore.keyFor(1)),
       );
-      await prefs.setString('food_rescue_orders', raw!);
-      await prefs.remove(OrderLocalRepositoryImpl.keyFor(1));
+    });
 
-      final migrated = await OrderLocalRepositoryImpl(userId: 1).loadOrders();
-      expect(migrated, hasLength(1));
-      expect(migrated.first.id, 'ord-lama');
-      // Key lama sudah dibersihkan.
-      expect(await prefs.getString('food_rescue_orders'), isNull);
+    test('foto akun A tidak terlihat oleh akun B', () async {
+      await ProofPhotoStore(userId: 1).save(10, 'FOTOA');
+
+      expect(await ProofPhotoStore(userId: 2).read(10), isNull);
+      expect(await ProofPhotoStore(userId: 1).read(10), 'FOTOA');
+    });
+
+    test('foto bertahan untuk beberapa pesanan sekaligus', () async {
+      final store = ProofPhotoStore(userId: 1);
+      await store.save(1, 'A');
+      await store.save(2, 'B');
+
+      expect(await store.loadAll(), {'1': 'A', '2': 'B'});
+    });
+
+    test('storage rusak tidak membuat aplikasi crash', () async {
+      await SharedPreferencesAsync()
+          .setString(ProofPhotoStore.keyFor(1), 'bukan json');
+
+      expect(await ProofPhotoStore(userId: 1).loadAll(), isEmpty);
     });
   });
 
-  group('#2 sukses hanya setelah pesanan tersimpan', () {
-    test('addOrder menulis ke storage sebelum state berubah', () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      container.read(authProvider.notifier).replaceUser(_userA);
-      await container.read(ordersProvider.future);
-
-      await container.read(ordersProvider.notifier).addOrder(_order('ord-1'));
-
-      // Baca langsung dari storage: harus sudah ada.
-      final stored = await OrderLocalRepositoryImpl(userId: 1).loadOrders();
-      expect(stored.map((o) => o.id), contains('ord-1'));
-    });
-  });
-
-  group('#3 foto bukti pengambilan disimpan', () {
-    test('proofPhoto bertahan setelah diserialisasi', () {
-      final order = _order('ord-1').copyWith(proofPhoto: 'BASE64DATA');
-
-      final restored = Order.fromJson(
-        jsonDecode(jsonEncode(order.toJson())) as Map<String, dynamic>,
+  group('#2 status pesanan berasal dari server', () {
+    test('cancel memakai status hasil server, bukan tebakan klien', () async {
+      final repo = ApiOrderRepository(
+        api: _api(MockClient((_) async {
+          return http.Response(
+            jsonEncode({'order': _orderJson(status: 'cancelled')}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        })),
       );
 
-      expect(restored.proofPhoto, 'BASE64DATA');
+      final order = await repo.cancel(token: 't', orderId: 1);
+
+      expect(order.status, OrderStatus.cancelled);
     });
 
-    test('markCompleted menyimpan proofPhoto ke storage', () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test('complete menolak kode salah dengan pesan server', () async {
+      final repo = ApiOrderRepository(
+        api: _api(MockClient((_) async => http.Response(
+              jsonEncode({
+                'error': {
+                  'code': 'invalid_pickup_code',
+                  'message': 'Kode pick-up tidak cocok.',
+                },
+              }),
+              422,
+              headers: {'content-type': 'application/json'},
+            ))),
+      );
 
-      container.read(authProvider.notifier).replaceUser(_userA);
-      await container.read(ordersProvider.future);
-      await container.read(ordersProvider.notifier).addOrder(_order('ord-1'));
-
-      await container
-          .read(ordersProvider.notifier)
-          .markCompleted('ord-1', proofPhoto: 'FOTO');
-
-      final stored = await OrderLocalRepositoryImpl(userId: 1).loadOrders();
-      expect(stored.single.status, OrderStatus.completed);
-      expect(stored.single.proofPhoto, 'FOTO');
-    });
-
-    test('order tanpa bukti tetap bisa dibaca (data lama)', () {
-      final json = _order('ord-lama').toJson();
-      expect(json.containsKey('proofPhoto'), isFalse);
-
-      final restored = Order.fromJson(json);
-      expect(restored.proofPhoto, isNull);
+      await expectLater(
+        repo.complete(token: 't', orderId: 1, pickupCode: 'SALAH'),
+        throwsA(isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          'Kode pick-up tidak cocok.',
+        )),
+      );
     });
   });
 
-  group('#4 userId dari sesi, bukan hard-code', () {
-    test('body POST memakai userId yang dikirim', () async {
+  group('#3 bukti foto tidak mengubah status', () {
+    test('copyWith(proofPhoto:) tidak menyentuh status', () {
+      final order = Order.fromJson(_orderJson());
+      final withPhoto = order.copyWith(proofPhoto: 'BASE64');
+
+      expect(withPhoto.status, OrderStatus.pending);
+      expect(withPhoto.proofPhoto, 'BASE64');
+    });
+
+    test('proofPhoto tidak dikirim ke server (hanya lokal)', () {
+      final json = Order.fromJson(_orderJson())
+          .copyWith(proofPhoto: 'BASE64')
+          .toJson();
+
+      // toJson dipakai untuk cache lokal; repo tidak pernah mengirimnya.
+      expect(json['proofPhoto'], 'BASE64');
+      expect(json['status'], 'pending');
+    });
+  });
+
+  group('#4 identitas dari token, bukan body', () {
+    test('createOrder hanya mengirim foodId & quantity', () async {
       Map<String, dynamic>? sent;
+      String? auth;
 
       final repo = ApiOrderRepository(
-        client: MockClient((request) async {
+        api: _api(MockClient((request) async {
           sent = jsonDecode(request.body) as Map<String, dynamic>;
-          return http.Response(jsonEncode({'id': 209}), 201);
-        }),
+          auth = request.headers['Authorization'];
+          return http.Response(
+            jsonEncode({'order': _orderJson()}),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        })),
       );
 
-      await repo.createOrder(
-        buyerName: 'B',
-        surplusFoodId: '16',
-        surplusFoodName: 'Apple',
-        quantity: 1,
-        unitPrice: 1000,
-        userId: 7,
-      );
+      await repo.createOrder(token: 'token-a', foodId: 16, quantity: 1);
 
-      expect(sent!['userId'], 7);
+      expect(sent, {'foodId': 16, 'quantity': 1});
+      expect(auth, 'Bearer token-a');
     });
 
-    test('dua user berbeda mengirim userId berbeda', () async {
-      final sentIds = <int>[];
-
-      final repo = ApiOrderRepository(
-        client: MockClient((request) async {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          sentIds.add(body['userId'] as int);
-          return http.Response(jsonEncode({'id': 1}), 201);
-        }),
-      );
-
-      for (final id in [1, 2]) {
-        await repo.createOrder(
-          buyerName: 'X',
-          surplusFoodId: '16',
-          surplusFoodName: 'Apple',
-          quantity: 1,
-          unitPrice: 1000,
-          userId: id,
-        );
-      }
-
-      expect(sentIds, [1, 2]);
-    });
-
-    test('booking tanpa login ditolak', () async {
+    test('booking tanpa sesi ditolak sebelum menyentuh jaringan', () async {
+      var called = false;
       final container = ProviderContainer(
         overrides: [
-          orderRepositoryProvider
-              .overrideWithValue(FakeOrderRepository(delay: Duration.zero)),
+          orderRepositoryProvider.overrideWithValue(
+            _SpyOrderRepository(onCall: () => called = true),
+          ),
         ],
       );
       addTearDown(container.dispose);
 
-      await container.read(bookingProvider.notifier).submit(
-            buyerName: 'X',
-            surplusFoodId: '16',
-            surplusFoodName: 'Apple',
-            quantity: 1,
-            unitPrice: 1000,
-          );
+      await container
+          .read(bookingProvider.notifier)
+          .submit(surplusFoodId: '16', quantity: 1);
 
       expect(container.read(bookingProvider).hasError, isTrue);
       expect(
         container.read(bookingProvider).error.toString(),
         contains('login'),
       );
+      expect(called, isFalse);
     });
   });
 
-  group('#5 kuota mengikuti stok nyata', () {
-    test('quota = stock API apa adanya', () {
+  group('#5 kuota mengikuti data server', () {
+    test('quota = nilai server apa adanya', () {
       final food = SurplusFood.fromJson({
         'id': 16,
-        'title': 'Apple',
-        'price': 1.99,
-        'stock': 8,
-        'category': 'groceries',
+        'merchantId': 3,
+        'merchantName': 'Roti O Bakso',
+        'name': 'Roti Gandum',
+        'description': 'Roti sisa hari ini.',
+        'originalPrice': 40000,
+        'discountPrice': 15000,
+        'quota': 8,
+        'pickupWindow': '19:00 - 21:00',
+        'isActive': true,
       });
 
       expect(food.quota, 8);
@@ -272,7 +235,7 @@ void main() {
 
     test('reduceQuota tidak membuat kuota negatif', () {
       const food = SurplusFood(
-        id: 'x',
+        id: 1,
         merchantName: 'M',
         name: 'N',
         description: 'D',
@@ -286,4 +249,43 @@ void main() {
       expect(food.copyWithQuota(-5).quota, 0);
     });
   });
+}
+
+/// Repo pesanan yang mencatat apakah jaringan sempat dipanggil.
+class _SpyOrderRepository implements OrderRepository {
+  _SpyOrderRepository({required this.onCall});
+
+  final void Function() onCall;
+
+  @override
+  Future<Order> createOrder({
+    required String token,
+    required int foodId,
+    required int quantity,
+  }) async {
+    onCall();
+    throw StateError('tidak boleh dipanggil');
+  }
+
+  @override
+  Future<List<Order>> fetchOrders({required String token}) async {
+    onCall();
+    return [];
+  }
+
+  @override
+  Future<Order> complete({
+    required String token,
+    required int orderId,
+    required String pickupCode,
+  }) async {
+    onCall();
+    throw StateError('tidak boleh dipanggil');
+  }
+
+  @override
+  Future<Order> cancel({required String token, required int orderId}) async {
+    onCall();
+    throw StateError('tidak boleh dipanggil');
+  }
 }

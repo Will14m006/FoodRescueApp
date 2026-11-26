@@ -1,67 +1,42 @@
-import 'package:http/http.dart' as http;
-
 import '../core/network/api_client.dart';
-import 'auth_repository.dart' show AuthException, AuthUser;
+import '../core/network/api_exception.dart';
+import 'auth_repository.dart' show AuthUser;
 
-/// Kontrak sumber data profil. UI tidak tahu apakah datanya dari API atau fake.
 abstract class ProfileRepository {
+  /// Kirim nama & email baru. Server mengembalikan user terbaru.
   Future<AuthUser> updateProfile({
     required AuthUser current,
-    required String firstName,
-    required String lastName,
+    required String name,
     required String email,
   });
 }
 
-/// P9: request API profil — `PUT https://dummyjson.com/users/{id}`.
-///
-/// Mengembalikan [AuthUser] baru dengan data hasil server, token lama tetap
-/// dipakai (endpoint ini tidak menerbitkan token baru).
+/// `PATCH /auth/me` — hanya nama & email. Role dan password tidak bisa
+/// diubah lewat endpoint ini; backend menolak field tersebut dengan diam
+/// (diabaikan), jadi UI juga tidak menawarkannya.
 class ApiProfileRepository implements ProfileRepository {
-  ApiProfileRepository({
-    http.Client? client,
-    Duration timeout = const Duration(seconds: 12),
-  }) : _api = ApiClient(client: client, timeout: timeout);
+  ApiProfileRepository({required this.api});
 
-  final ApiClient _api;
-
-  static String endpointFor(int userId) => 'https://dummyjson.com/users/$userId';
+  final ApiClient api;
 
   @override
   Future<AuthUser> updateProfile({
     required AuthUser current,
-    required String firstName,
-    required String lastName,
+    required String name,
     required String email,
   }) async {
-    final json = await _api.sendJson(
-      method: 'PUT',
-      endpoint: endpointFor(current.id),
-      body: {
-        'firstName': firstName.trim(),
-        'lastName': lastName.trim(),
-        'email': email.trim(),
-      },
-      onError: (message, statusCode) => AuthException(
-        statusCode == null
-            ? message
-            : 'Gagal menyimpan profil ($message). Coba lagi.',
-      ),
+    final body = await api.request(
+      method: 'PATCH',
+      path: '/auth/me',
+      token: current.token,
+      body: {'name': name.trim(), 'email': email.trim()},
     );
 
-    // Server mengembalikan objek user lengkap; hanya field yang kita ubah
-    // yang diambil supaya token & id tetap dari sesi berjalan.
-    return AuthUser(
-      id: current.id,
-      name: AuthUser.fullName({
-        'firstName': json['firstName'] ?? firstName,
-        'lastName': json['lastName'] ?? lastName,
-      }),
-      email: (json['email'] as String?)?.trim().isNotEmpty == true
-          ? json['email'] as String
-          : email,
-      image: current.image,
-      token: current.token,
-    );
+    final user = body['user'];
+    if (user is! Map<String, dynamic>) {
+      throw const ApiException('Respons server tidak sesuai.');
+    }
+    // Token tidak diterbitkan ulang oleh endpoint ini; pakai token lama.
+    return AuthUser.fromJson(user, token: current.token);
   }
 }
