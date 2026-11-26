@@ -6,6 +6,7 @@ import 'food_test.dart' show CatalogFixture;
 import 'support.dart';
 
 void main() {
+  configureDriftForTests();
   late TestApi api;
   late CatalogFixture fixture;
   late String merchantToken;

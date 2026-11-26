@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
+  configureDriftForTests();
   late JwtService jwt;
 
   setUp(() {

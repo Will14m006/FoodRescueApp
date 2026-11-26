@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:food_rescue_backend/app.dart';
 import 'package:food_rescue_backend/auth/jwt_service.dart';
@@ -13,6 +14,13 @@ const testSecret = 'test-only-secret-0123456789abcdef0123456789abcdef';
 
 /// Biaya bcrypt terendah yang masih aman, supaya test tidak lambat.
 const testBcryptCost = 10;
+
+/// Setiap [TestApi] memakai `NativeDatabase.memory()` sendiri, jadi beberapa
+/// instance di satu proses aman. Peringatan drift hanya menakut-nakuti kasus
+/// *executor yang sama* — bukan kasus di sini.
+void configureDriftForTests() {
+  driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+}
 
 /// Satu instance API lengkap di atas database in-memory.
 class TestApi {
@@ -94,4 +102,22 @@ Future<(String token, Map<String, dynamic> user, Map<String, dynamic> body)>
     body['user'] as Map<String, dynamic>,
     body,
   );
+}
+
+/// Akun admin **tidak bisa** dibuat lewat HTTP (itu memang aturannya), jadi
+/// test menyisipkannya langsung ke database — sama seperti `tool/seed.dart`.
+Future<String> createAdminToken(
+  TestApi api, {
+  String email = 'admin@example.com',
+  String name = 'Admin',
+}) async {
+  final user = await api.db.into(api.db.users).insertReturning(
+        UsersCompanion.insert(
+          email: email,
+          passwordHash: api.hasher.hash('PasswordKuat123'),
+          name: name,
+          role: UserRole.admin,
+        ),
+      );
+  return api.jwt.issue(userId: user.id, role: UserRole.admin);
 }

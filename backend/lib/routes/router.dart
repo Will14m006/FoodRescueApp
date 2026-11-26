@@ -7,6 +7,7 @@ import '../auth/password_hasher.dart';
 import '../db/database.dart';
 import '../middleware/api_response.dart';
 import 'auth_routes.dart';
+import 'admin_routes.dart';
 import 'food_routes.dart';
 import 'merchant_routes.dart';
 import 'order_routes.dart';
@@ -41,6 +42,7 @@ Router buildRouter({
   router.mount('/', merchantRoutes(db: db, jwt: jwt).call);
   router.mount('/', foodRoutes(db: db, jwt: jwt).call);
   router.mount('/', orderRoutes(db: db, jwt: jwt).call);
+  router.mount('/', adminRoutes(db: db, jwt: jwt).call);
 
   // Rute tak dikenal dijawab JSON, bukan halaman bawaan shelf.
   router.all('/<ignored|.*>', (Request request) {

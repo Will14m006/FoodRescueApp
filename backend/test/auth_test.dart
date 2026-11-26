@@ -11,6 +11,7 @@ import 'support.dart';
 const _password = 'PasswordKuat123';
 
 void main() {
+  configureDriftForTests();
   late TestApi api;
 
   setUp(() => api = TestApi());

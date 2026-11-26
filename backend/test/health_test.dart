@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
+  configureDriftForTests();
   group('GET /health', () {
     late TestApi api;
     setUp(() => api = TestApi());

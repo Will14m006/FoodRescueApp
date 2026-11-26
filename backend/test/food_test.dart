@@ -57,6 +57,7 @@ class CatalogFixture {
 }
 
 void main() {
+  configureDriftForTests();
   group('PickupCode', () {
     test('format RESCUE- diikuti 8 karakter alfabet aman', () {
       final code = PickupCode.generate();
