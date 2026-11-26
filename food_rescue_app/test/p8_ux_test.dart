@@ -125,7 +125,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('feedback aksi: menu yang belum ada memberi pesan, tidak diam',
+  testWidgets('Pusat Bantuan membuka FAQ, bukan pesan "segera hadir"',
       (WidgetTester tester) async {
     await _pumpApp(tester, const Size(800, 1600));
 
@@ -135,6 +135,7 @@ void main() {
     await tester.tap(find.text('Bantuan'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('segera hadir'), findsOneWidget);
+    expect(find.text('Pusat Bantuan'), findsOneWidget);
+    expect(find.textContaining('KODE PICK-UP'), findsOneWidget);
   });
 }

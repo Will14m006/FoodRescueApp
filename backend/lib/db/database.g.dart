@@ -80,6 +80,21 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -88,6 +103,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     name,
     role,
     createdAt,
+    isActive,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -137,6 +153,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
     return context;
   }
 
@@ -172,6 +194,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
     );
   }
 
@@ -191,6 +217,11 @@ class User extends DataClass implements Insertable<User> {
   final String name;
   final UserRole role;
   final DateTime createdAt;
+
+  /// `false` = akun ditangguhkan admin. User tidak bisa login dan sesi
+  /// lamanya ditolak saat `/auth/me` dipanggil. Barisnya **tidak** dihapus:
+  /// pesanan lama harus tetap menunjuk ke pembeli yang sah.
+  final bool isActive;
   const User({
     required this.id,
     required this.email,
@@ -198,6 +229,7 @@ class User extends DataClass implements Insertable<User> {
     required this.name,
     required this.role,
     required this.createdAt,
+    required this.isActive,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -210,6 +242,7 @@ class User extends DataClass implements Insertable<User> {
       map['role'] = Variable<String>($UsersTable.$converterrole.toSql(role));
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_active'] = Variable<bool>(isActive);
     return map;
   }
 
@@ -221,6 +254,7 @@ class User extends DataClass implements Insertable<User> {
       name: Value(name),
       role: Value(role),
       createdAt: Value(createdAt),
+      isActive: Value(isActive),
     );
   }
 
@@ -238,6 +272,7 @@ class User extends DataClass implements Insertable<User> {
         serializer.fromJson<String>(json['role']),
       ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
     );
   }
   @override
@@ -252,6 +287,7 @@ class User extends DataClass implements Insertable<User> {
         $UsersTable.$converterrole.toJson(role),
       ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isActive': serializer.toJson<bool>(isActive),
     };
   }
 
@@ -262,6 +298,7 @@ class User extends DataClass implements Insertable<User> {
     String? name,
     UserRole? role,
     DateTime? createdAt,
+    bool? isActive,
   }) => User(
     id: id ?? this.id,
     email: email ?? this.email,
@@ -269,6 +306,7 @@ class User extends DataClass implements Insertable<User> {
     name: name ?? this.name,
     role: role ?? this.role,
     createdAt: createdAt ?? this.createdAt,
+    isActive: isActive ?? this.isActive,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -280,6 +318,7 @@ class User extends DataClass implements Insertable<User> {
       name: data.name.present ? data.name.value : this.name,
       role: data.role.present ? data.role.value : this.role,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
     );
   }
 
@@ -291,14 +330,15 @@ class User extends DataClass implements Insertable<User> {
           ..write('passwordHash: $passwordHash, ')
           ..write('name: $name, ')
           ..write('role: $role, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('isActive: $isActive')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, email, passwordHash, name, role, createdAt);
+      Object.hash(id, email, passwordHash, name, role, createdAt, isActive);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -308,7 +348,8 @@ class User extends DataClass implements Insertable<User> {
           other.passwordHash == this.passwordHash &&
           other.name == this.name &&
           other.role == this.role &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.isActive == this.isActive);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -318,6 +359,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> name;
   final Value<UserRole> role;
   final Value<DateTime> createdAt;
+  final Value<bool> isActive;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.email = const Value.absent(),
@@ -325,6 +367,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.name = const Value.absent(),
     this.role = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.isActive = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
@@ -333,6 +376,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     required String name,
     required UserRole role,
     this.createdAt = const Value.absent(),
+    this.isActive = const Value.absent(),
   }) : email = Value(email),
        passwordHash = Value(passwordHash),
        name = Value(name),
@@ -344,6 +388,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? name,
     Expression<String>? role,
     Expression<DateTime>? createdAt,
+    Expression<bool>? isActive,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -352,6 +397,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (name != null) 'name': name,
       if (role != null) 'role': role,
       if (createdAt != null) 'created_at': createdAt,
+      if (isActive != null) 'is_active': isActive,
     });
   }
 
@@ -362,6 +408,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String>? name,
     Value<UserRole>? role,
     Value<DateTime>? createdAt,
+    Value<bool>? isActive,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
@@ -370,6 +417,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       name: name ?? this.name,
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -396,6 +444,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
     return map;
   }
 
@@ -407,7 +458,8 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('passwordHash: $passwordHash, ')
           ..write('name: $name, ')
           ..write('role: $role, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('isActive: $isActive')
           ..write(')'))
         .toString();
   }
@@ -1870,6 +1922,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       required String name,
       required UserRole role,
       Value<DateTime> createdAt,
+      Value<bool> isActive,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
@@ -1879,6 +1932,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<UserRole> role,
       Value<DateTime> createdAt,
+      Value<bool> isActive,
     });
 
 class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
@@ -1917,6 +1971,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1959,6 +2018,11 @@ class $$UsersTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -1989,6 +2053,9 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
 }
 
 class $$UsersTableTableManager
@@ -2025,6 +2092,7 @@ class $$UsersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<UserRole> role = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
                 email: email,
@@ -2032,6 +2100,7 @@ class $$UsersTableTableManager
                 name: name,
                 role: role,
                 createdAt: createdAt,
+                isActive: isActive,
               ),
           createCompanionCallback:
               ({
@@ -2041,6 +2110,7 @@ class $$UsersTableTableManager
                 required String name,
                 required UserRole role,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
                 email: email,
@@ -2048,6 +2118,7 @@ class $$UsersTableTableManager
                 name: name,
                 role: role,
                 createdAt: createdAt,
+                isActive: isActive,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

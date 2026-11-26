@@ -128,6 +128,17 @@ Router authRoutes({
       );
     }
 
+    // Password benar tapi akun ditangguhkan. Dicek SETELAH verifikasi password
+    // supaya penyerang tidak bisa memakai pesan ini untuk menebak akun mana
+    // yang ditangguhkan tanpa tahu passwordnya.
+    if (!user.isActive) {
+      throw const ApiException(
+        403,
+        'Akun ini ditangguhkan. Hubungi admin Food Rescue.',
+        code: 'account_suspended',
+      );
+    }
+
     throttle.reset(throttleKey);
     return ApiResponse.ok({
       'token': jwt.issue(userId: user.id, role: user.role),
@@ -150,6 +161,14 @@ Router authRoutes({
         401,
         'Token tidak valid atau sudah kedaluwarsa. Silakan login ulang.',
         code: 'unauthorized',
+      );
+    }
+    // Ditangguhkan setelah token dibuat: token lama tidak boleh tetap jalan.
+    if (!user.isActive) {
+      throw const ApiException(
+        403,
+        'Akun ini ditangguhkan. Hubungi admin Food Rescue.',
+        code: 'account_suspended',
       );
     }
     return ApiResponse.ok({'user': publicUser(user)});
@@ -224,6 +243,67 @@ Router authRoutes({
       await db.update(db.users).replace(updated);
 
       return ApiResponse.ok({'user': publicUser(updated)});
+    }),
+  );
+
+  /// Ubah password sendiri. Password lama **wajib** dikirim dan diverifikasi.
+  ///
+  /// Tanpa verifikasi password lama, siapa pun yang menemukan perangkat yang
+  /// masih login bisa mengambil alih akun secara permanen.
+  router.post(
+    '/auth/change-password',
+    authGuard(jwt)((Request request) async {
+      final auth = authenticatedUser(request);
+      final body = await readJsonObject(request);
+
+      final currentPassword = requireString(body, 'currentPassword');
+      final newPassword = requireString(body, 'newPassword');
+
+      if (!PasswordHasher.isLengthValid(newPassword)) {
+        throw ApiException(
+          422,
+          'Password baru harus ${PasswordHasher.minLength}–'
+          '${PasswordHasher.maxLengthBytes} byte.',
+          code: 'invalid_password',
+        );
+      }
+
+      final user = await (db.select(db.users)
+            ..where((t) => t.id.equals(auth.id)))
+          .getSingleOrNull();
+      if (user == null) {
+        throw const ApiException(
+          401,
+          'Sesi tidak valid. Silakan login ulang.',
+          code: 'unauthorized',
+        );
+      }
+
+      if (!hasher.verify(currentPassword, user.passwordHash)) {
+        // 422, bukan 401: token-nya masih sah, hanya isian form yang salah.
+        throw const ApiException(
+          422,
+          'Password lama tidak cocok.',
+          code: 'wrong_password',
+        );
+      }
+
+      if (currentPassword == newPassword) {
+        throw const ApiException(
+          422,
+          'Password baru harus berbeda dari password lama.',
+          code: 'same_password',
+        );
+      }
+
+      await db.update(db.users).replace(
+            user.copyWith(passwordHash: hasher.hash(newPassword)),
+          );
+
+      return ApiResponse.ok({
+        'message': 'Password berhasil diubah. Gunakan password baru saat '
+            'login berikutnya.',
+      });
     }),
   );
 

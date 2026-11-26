@@ -94,6 +94,25 @@ abstract class MerchantRepository {
     required int foodId,
     required int quota,
   });
+
+  /// Ubah detail makanan (nama, harga, jam ambil, aktif/nonaktif).
+  Future<SurplusFood> updateFood({
+    required String token,
+    required int foodId,
+    String? name,
+    String? description,
+    int? originalPrice,
+    int? discountPrice,
+    int? quota,
+    String? pickupWindow,
+    bool? isActive,
+  });
+
+  /// Nonaktifkan makanan (soft delete — pesanan lama tetap utuh).
+  Future<SurplusFood> deactivateFood({
+    required String token,
+    required int foodId,
+  });
 }
 
 class ApiMerchantRepository implements MerchantRepository {
@@ -193,6 +212,48 @@ class ApiMerchantRepository implements MerchantRepository {
       path: '/foods/$foodId',
       token: token,
       body: {'quota': quota},
+    );
+    return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SurplusFood> updateFood({
+    required String token,
+    required int foodId,
+    String? name,
+    String? description,
+    int? originalPrice,
+    int? discountPrice,
+    int? quota,
+    String? pickupWindow,
+    bool? isActive,
+  }) async {
+    final body = await api.request(
+      method: 'PATCH',
+      path: '/foods/$foodId',
+      token: token,
+      body: {
+        if (name != null) 'name': name,
+        if (description != null) 'description': description,
+        if (originalPrice != null) 'originalPrice': originalPrice,
+        if (discountPrice != null) 'discountPrice': discountPrice,
+        if (quota != null) 'quota': quota,
+        if (pickupWindow != null) 'pickupWindow': pickupWindow,
+        if (isActive != null) 'isActive': isActive,
+      },
+    );
+    return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SurplusFood> deactivateFood({
+    required String token,
+    required int foodId,
+  }) async {
+    final body = await api.request(
+      method: 'DELETE',
+      path: '/foods/$foodId',
+      token: token,
     );
     return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
   }

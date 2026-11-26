@@ -52,6 +52,79 @@ class ProfileScreen extends ConsumerWidget {
     AppFeedback.info(context, '$feature segera hadir di versi berikutnya.');
   }
 
+  /// FAQ singkat — pertanyaan yang benar-benar muncul saat memakai aplikasi.
+  void _showHelp(BuildContext context) {
+    const faqs = [
+      (
+        'Bagaimana cara mengambil makanan?',
+        'Pesan di katalog, tunjukkan KODE PICK-UP di Status Pesanan ke kasir '
+            'toko, lalu merchant memverifikasi kodenya.',
+      ),
+      (
+        'Kenapa kode pick-up saya tidak diterima?',
+        'Kode berbeda untuk setiap pesanan. Pastikan kasir memasukkan kode '
+            'dari pesanan yang benar — bukan kode pesanan lain.',
+      ),
+      (
+        'Bisakah pesanan dibatalkan?',
+        'Bisa, selama statusnya masih MENUNGGU. Kuota otomatis kembali ke '
+            'toko. Pesanan yang sudah selesai tidak bisa dibatalkan.',
+      ),
+      (
+        'Kenapa akun saya tidak bisa login?',
+        'Akun bisa ditangguhkan admin bila menyalahgunakan aplikasi. '
+            'Hubungi admin lewat email di halaman Tentang.',
+      ),
+      (
+        'Apakah foto bukti pengambilan dikirim ke server?',
+        'Tidak. Foto hanya disimpan di perangkatmu sebagai pengingat pribadi.',
+      ),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          children: [
+            Text('Pusat Bantuan', style: AppTextStyles.headline),
+            const SizedBox(height: AppSpacing.md),
+            for (final faq in faqs) ...[
+              Text(faq.$1, style: AppTextStyles.bodyStrong),
+              const SizedBox(height: 4),
+              Text(faq.$2, style: AppTextStyles.body),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Food Rescue',
+      applicationVersion: '1.0.0',
+      applicationIcon: const Icon(Icons.eco_rounded,
+          size: 40, color: AppColors.primary),
+      applicationLegalese: 'Proyek Akhir PBL Pemrograman Mobile\n'
+          'Menyelamatkan makanan surplus, mengurangi limbah pangan.',
+      children: [
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Dibangun dengan Flutter (Dart) dan backend Dart sendiri: '
+          'shelf + drift (SQLite) + bcrypt + JWT.',
+          style: AppTextStyles.caption,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
@@ -198,8 +271,21 @@ class ProfileScreen extends ConsumerWidget {
                       icon: Icons.edit_rounded,
                       title: 'Edit Profil',
                       subtitle: 'Ubah nama & email kamu',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.profileEdit),
+                      onTap: () async {
+                        await Navigator.pushNamed(
+                          context,
+                          AppRoutes.profileEdit,
+                        );
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.lock_reset_rounded,
+                      title: 'Ubah Password',
+                      subtitle: 'Ganti password akun',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.changePassword,
+                      ),
                     ),
                     _MenuTile(
                       icon: Icons.delivery_dining_rounded,
@@ -231,13 +317,13 @@ class ProfileScreen extends ConsumerWidget {
                       icon: Icons.help_outline_rounded,
                       title: 'Bantuan',
                       subtitle: 'Pusat bantuan & FAQ',
-                      onTap: () => _comingSoon(context, 'Pusat bantuan'),
+                      onTap: () => _showHelp(context),
                     ),
                     _MenuTile(
                       icon: Icons.info_outline_rounded,
                       title: 'Tentang Aplikasi',
                       subtitle: 'Versi 1.0.0',
-                      onTap: () => _comingSoon(context, 'Halaman tentang'),
+                      onTap: () => _showAbout(context),
                     ),
                     _MenuTile(
                       icon: Icons.logout_rounded,

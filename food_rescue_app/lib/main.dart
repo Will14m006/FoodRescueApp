@@ -13,6 +13,7 @@ import 'providers/auth_provider.dart';
 import 'routes/app_routes.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/booking_screen.dart';
+import 'screens/change_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -89,6 +90,7 @@ class FoodRescueApp extends StatelessWidget {
         },
         AppRoutes.profile: (context) => const ProfileScreen(),
         AppRoutes.profileEdit: (context) => const ProfileFormScreen(),
+        AppRoutes.changePassword: (context) => const ChangePasswordScreen(),
         AppRoutes.orders: (context) => const OrdersScreen(),
         AppRoutes.orderStatus: (context) => const OrderStatusScreen(),
       },

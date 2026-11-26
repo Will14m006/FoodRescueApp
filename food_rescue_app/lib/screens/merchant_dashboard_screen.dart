@@ -503,12 +503,229 @@ class _FoodRow extends ConsumerWidget {
             ),
           ),
           TextButton(
-            onPressed: () => _editQuota(context, ref),
-            child: const Text('Stok'),
+            onPressed: () => _showActions(context, ref),
+            child: const Text('Kelola'),
           ),
         ],
       ),
     );
+  }
+
+  void _showActions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                food.name,
+                style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: const Text('Ubah stok'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _editQuota(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit detail'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _editDetail(context, ref);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                food.isActive
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: food.isActive ? AppColors.error : AppColors.primary,
+              ),
+              title: Text(
+                food.isActive ? 'Nonaktifkan' : 'Aktifkan kembali',
+                style: TextStyle(
+                  color: food.isActive ? AppColors.error : AppColors.primary,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _toggleActive(context, ref);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleActive(BuildContext context, WidgetRef ref) async {
+    final makeActive = !food.isActive;
+
+    if (!makeActive) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Nonaktifkan Makanan'),
+          content: Text(
+            '"${food.name}" akan hilang dari katalog pembeli. '
+            'Pesanan yang sudah masuk tetap tersimpan.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: AppColors.textOnPrimary,
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Nonaktifkan'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    try {
+      await ref
+          .read(merchantFoodsProvider.notifier)
+          .updateFood(foodId: food.id, isActive: makeActive);
+      if (context.mounted) {
+        AppFeedback.success(
+          context,
+          makeActive ? 'Makanan diaktifkan kembali.' : 'Makanan dinonaktifkan.',
+        );
+      }
+    } on Exception catch (e) {
+      if (context.mounted) AppFeedback.error(context, '$e');
+    }
+  }
+
+  Future<void> _editDetail(BuildContext context, WidgetRef ref) async {
+    final name = TextEditingController(text: food.name);
+    final description = TextEditingController(text: food.description);
+    final original = TextEditingController(text: '${food.originalPrice}');
+    final discount = TextEditingController(text: '${food.discountPrice}');
+    final window = TextEditingController(text: food.pickupWindow);
+
+    final save = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Edit makanan', style: AppTextStyles.headline),
+              const SizedBox(height: AppSpacing.lg),
+              TextField(
+                controller: name,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Nama makanan'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: description,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Deskripsi'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: original,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Harga asli'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: TextField(
+                      controller: discount,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Harga diskon'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: window,
+                decoration: const InputDecoration(labelText: 'Jam ambil'),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  child: const Text('Simpan Perubahan'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (save != true) {
+      for (final c in [name, description, original, discount, window]) {
+        c.dispose();
+      }
+      return;
+    }
+
+    final originalPrice = int.tryParse(original.text.trim());
+    final discountPrice = int.tryParse(discount.text.trim());
+    final newName = name.text.trim();
+
+    try {
+      if (newName.length < 2) {
+        throw StateError('Nama makanan minimal 2 karakter.');
+      }
+      if (originalPrice == null ||
+          discountPrice == null ||
+          discountPrice > originalPrice) {
+        throw StateError('Harga tidak valid (diskon ≤ harga asli).');
+      }
+      if (window.text.trim().isEmpty) {
+        throw StateError('Jam ambil tidak boleh kosong.');
+      }
+
+      await ref.read(merchantFoodsProvider.notifier).updateFood(
+            foodId: food.id,
+            name: newName,
+            description: description.text.trim(),
+            originalPrice: originalPrice,
+            discountPrice: discountPrice,
+            pickupWindow: window.text.trim(),
+          );
+      if (context.mounted) AppFeedback.success(context, 'Makanan diperbarui.');
+    } on Exception catch (e) {
+      if (context.mounted) AppFeedback.error(context, '$e');
+    } finally {
+      for (final c in [name, description, original, discount, window]) {
+        c.dispose();
+      }
+    }
   }
 
   Future<void> _editQuota(BuildContext context, WidgetRef ref) async {

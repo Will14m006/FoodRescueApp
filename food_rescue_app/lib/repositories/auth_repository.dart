@@ -67,6 +67,20 @@ abstract class AuthRepository {
 
   /// Pulihkan sesi dari token tersimpan. `null` = token sudah tidak berlaku.
   Future<AuthUser?> me(String token);
+
+  /// Ubah password. Password lama diverifikasi server.
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  /// Ubah nama & email sendiri.
+  Future<AuthUser> updateProfile({
+    required String token,
+    String? name,
+    String? email,
+  });
 }
 
 /// Autentikasi lewat backend sendiri (`/auth/*`).
@@ -127,6 +141,45 @@ class ApiAuthRepository implements AuthRepository {
       if (e.isUnauthorized) return null;
       rethrow;
     }
+  }
+
+  @override
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await api.request(
+      method: 'POST',
+      path: '/auth/change-password',
+      token: token,
+      body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+    );
+  }
+
+  @override
+  Future<AuthUser> updateProfile({
+    required String token,
+    String? name,
+    String? email,
+  }) async {
+    final body = await api.request(
+      method: 'PATCH',
+      path: '/auth/me',
+      token: token,
+      body: {
+        if (name != null) 'name': name.trim(),
+        if (email != null) 'email': email.trim(),
+      },
+    );
+    final user = body['user'];
+    if (user is! Map<String, dynamic>) {
+      throw const ApiException('Respons server tidak sesuai.');
+    }
+    return AuthUser.fromJson(user, token: token);
   }
 
   AuthUser _withToken(Map<String, dynamic> body) {

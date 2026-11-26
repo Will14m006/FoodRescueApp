@@ -1,5 +1,7 @@
 import '../core/network/api_client.dart';
 import '../core/network/api_exception.dart';
+import '../models/order_model.dart';
+import '../models/surplus_food_model.dart';
 import '../models/user_role.dart';
 
 /// Angka ringkas `GET /admin/stats`.
@@ -30,7 +32,15 @@ class AdminStats {
     required this.completedOrders,
     required this.cancelledOrders,
     required this.revenue,
+    this.suspended = 0,
+    this.portionsSaved = 0,
   });
+
+  /// Akun yang ditangguhkan admin.
+  final int suspended;
+
+  /// Total porsi yang benar-benar terselamatkan (pesanan tidak batal).
+  final int portionsSaved;
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
     final users = json['users'];
@@ -56,6 +66,8 @@ class AdminStats {
       completedOrders: pick(orders, 'completed'),
       cancelledOrders: pick(orders, 'cancelled'),
       revenue: pick(orders, 'revenue'),
+      suspended: pick(users, 'suspended'),
+      portionsSaved: pick(orders, 'portionsSaved'),
     );
   }
 }
@@ -68,6 +80,7 @@ class AdminUser {
   final String email;
   final UserRole role;
   final DateTime? createdAt;
+  final bool isActive;
 
   const AdminUser({
     required this.id,
@@ -75,6 +88,7 @@ class AdminUser {
     required this.email,
     required this.role,
     this.createdAt,
+    this.isActive = true,
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> json) {
@@ -87,13 +101,31 @@ class AdminUser {
       email: json['email'] as String? ?? '',
       role: UserRole.fromName(json['role'] as String?),
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 }
 
 abstract class AdminRepository {
   Future<AdminStats> stats({required String token});
-  Future<List<AdminUser>> users({required String token, UserRole? role});
+  Future<List<AdminUser>> users({
+    required String token,
+    UserRole? role,
+    String? query,
+  });
+
+  /// Tangguhkan (`false`) atau aktifkan kembali (`true`) akun.
+  Future<AdminUser> setUserActive({
+    required String token,
+    required int userId,
+    required bool isActive,
+  });
+
+  /// Semua makanan lintas toko (termasuk nonaktif).
+  Future<List<SurplusFood>> foods({required String token});
+
+  /// Semua pesanan lintas toko, opsional filter status.
+  Future<List<Order>> orders({required String token, OrderStatus? status});
 }
 
 class ApiAdminRepository implements AdminRepository {
@@ -112,6 +144,7 @@ class ApiAdminRepository implements AdminRepository {
   Future<List<AdminUser>> users({
     required String token,
     UserRole? role,
+    String? query,
   }) async {
     final body = await api.request(
       method: 'GET',
@@ -120,6 +153,7 @@ class ApiAdminRepository implements AdminRepository {
       query: {
         'limit': '200',
         if (role != null) 'role': role.name,
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
       },
     );
 
@@ -130,6 +164,67 @@ class ApiAdminRepository implements AdminRepository {
     return users
         .whereType<Map<String, dynamic>>()
         .map(AdminUser.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<AdminUser> setUserActive({
+    required String token,
+    required int userId,
+    required bool isActive,
+  }) async {
+    final body = await api.request(
+      method: 'PATCH',
+      path: '/admin/users/$userId',
+      token: token,
+      body: {'isActive': isActive},
+    );
+    final user = body['user'];
+    if (user is! Map<String, dynamic>) {
+      throw const ApiException('Respons admin tidak sesuai.');
+    }
+    return AdminUser.fromJson(user);
+  }
+
+  @override
+  Future<List<SurplusFood>> foods({required String token}) async {
+    final body = await api.request(
+      method: 'GET',
+      path: '/admin/foods',
+      token: token,
+      query: {'limit': '200'},
+    );
+    final foods = body['foods'];
+    if (foods is! List) {
+      throw const ApiException('Format daftar makanan tidak sesuai.');
+    }
+    return foods
+        .whereType<Map<String, dynamic>>()
+        .map(SurplusFood.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<List<Order>> orders({
+    required String token,
+    OrderStatus? status,
+  }) async {
+    final body = await api.request(
+      method: 'GET',
+      path: '/admin/orders',
+      token: token,
+      query: {
+        'limit': '200',
+        if (status != null) 'status': status.jsonValue,
+      },
+    );
+    final orders = body['orders'];
+    if (orders is! List) {
+      throw const ApiException('Format daftar pesanan tidak sesuai.');
+    }
+    return orders
+        .whereType<Map<String, dynamic>>()
+        .map(Order.fromJson)
         .toList();
   }
 }

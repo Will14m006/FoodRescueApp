@@ -46,6 +46,21 @@ class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<AuthUser?> me(String token) async => user;
+
+  @override
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
+
+  @override
+  Future<AuthUser> updateProfile({
+    required String token,
+    String? name,
+    String? email,
+  }) async =>
+      user;
 }
 
 /// Lokasi palsu supaya widget test tidak meminta izin GPS.

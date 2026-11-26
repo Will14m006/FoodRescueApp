@@ -11,6 +11,7 @@ Map<String, dynamic> userJson(User user) => {
       'email': user.email,
       'name': user.name,
       'role': user.role.name,
+      'isActive': user.isActive,
       'createdAt': user.createdAt.toUtc().toIso8601String(),
     };
 

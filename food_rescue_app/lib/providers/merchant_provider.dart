@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/surplus_food_model.dart';
 import '../repositories/merchant_repository.dart';
 import 'auth_provider.dart';
+import 'catalog_provider.dart';
 
 final merchantRepositoryProvider = Provider<MerchantRepository>((ref) {
   return ApiMerchantRepository(api: ref.watch(apiClientProvider));
@@ -60,6 +61,57 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
           quota: quota,
         );
 
+    _replace(updated);
+    ref.invalidate(merchantStatsProvider);
+  }
+
+  /// Ubah detail lengkap makanan. Dipakai form edit.
+  Future<void> updateFood({
+    required int foodId,
+    String? name,
+    String? description,
+    int? originalPrice,
+    int? discountPrice,
+    int? quota,
+    String? pickupWindow,
+    bool? isActive,
+  }) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    final updated = await ref.read(merchantRepositoryProvider).updateFood(
+          token: user.token,
+          foodId: foodId,
+          name: name,
+          description: description,
+          originalPrice: originalPrice,
+          discountPrice: discountPrice,
+          quota: quota,
+          pickupWindow: pickupWindow,
+          isActive: isActive,
+        );
+
+    _replace(updated);
+    ref.invalidate(merchantStatsProvider);
+    ref.invalidate(catalogProvider);
+  }
+
+  /// Soft delete: makanan hilang dari katalog, pesanan lama tetap utuh.
+  Future<void> deactivate(int foodId) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    final updated = await ref.read(merchantRepositoryProvider).deactivateFood(
+          token: user.token,
+          foodId: foodId,
+        );
+
+    _replace(updated);
+    ref.invalidate(merchantStatsProvider);
+    ref.invalidate(catalogProvider);
+  }
+
+  void _replace(SurplusFood updated) {
     final current = state.valueOrNull ?? const <SurplusFood>[];
     state = AsyncData([
       for (final food in current) food.id == updated.id ? updated : food,
@@ -89,6 +141,8 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
 
     final current = state.valueOrNull ?? const <SurplusFood>[];
     state = AsyncData([created, ...current]);
+    ref.invalidate(merchantStatsProvider);
+    ref.invalidate(catalogProvider);
   }
 }
 

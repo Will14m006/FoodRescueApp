@@ -25,6 +25,11 @@ class Users extends Table {
   TextColumn get name => text().withLength(min: 1, max: 120)();
   TextColumn get role => textEnum<UserRole>()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// `false` = akun ditangguhkan admin. User tidak bisa login dan sesi
+  /// lamanya ditolak saat `/auth/me` dipanggil. Barisnya **tidak** dihapus:
+  /// pesanan lama harus tetap menunjuk ke pembeli yang sah.
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 }
 
 class Merchants extends Table {
@@ -94,12 +99,19 @@ class AppDatabase extends _$AppDatabase {
   static bool logStatements = false;
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+        },
+        onUpgrade: (m, from, to) async {
+          // v2: kolom `isActive` untuk penangguhan akun oleh admin. Baris lama
+          // otomatis aktif, jadi tidak ada user yang tiba-tiba terkunci.
+          if (from < 2) {
+            await m.addColumn(users, users.isActive);
+          }
         },
         beforeOpen: (details) async {
           // Diulang di sini karena koneksi hasil createInBackground bisa
