@@ -3,36 +3,57 @@ import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
+import 'auth/jwt_service.dart';
+import 'auth/login_throttle.dart';
+import 'auth/password_hasher.dart';
+import 'db/database.dart';
+import 'middleware/access_log.dart';
 import 'middleware/api_response.dart';
 import 'middleware/security_headers.dart';
 import 'routes/router.dart';
 
 /// Merakit handler lengkap: pipeline middleware + router.
 ///
-/// Urutan tidak boleh ditukar:
-///   1. `errorHandler` — menangkap exception lebih dulu supaya respons 500
-///      tetap JSON dan tetap punya header keamanan.
-///   2. `SecurityHeaders` — header keamanan di semua respons.
-///   3. `logRequests` — log akses. Shelf mencatat method + path saja, tidak
-///      mencatat header Authorization.
+/// Urutan tidak boleh ditukar. Middleware yang ditambahkan lebih dulu berada
+/// **lebih luar**:
+///   1. `SecurityHeaders` — harus paling luar supaya respons 500 buatan
+///      `errorHandler` pun tetap mendapat header keamanan.
+///   2. `accessLog` — di luar `errorHandler` supaya yang dicatat adalah status
+///      **akhir** (401/403/500), bukan exception mentah.
+///   3. `errorHandler` — mengubah exception menjadi JSON. `ApiException`
+///      (401/403/422/…) tidak dianggap kesalahan server.
 ///   4. router.
-Handler buildHandler(void Function(String message) log) {
+///
+/// `logRequests()` bawaan shelf sengaja **tidak** dipakai: ia mencetak stack
+/// trace untuk setiap exception, termasuk 401 yang normal.
+Handler buildHandler({
+  required void Function(String message) log,
+  required AppDatabase db,
+  required JwtService jwt,
+  required PasswordHasher hasher,
+  required LoginThrottle throttle,
+}) {
   return const Pipeline()
+      .addMiddleware(SecurityHeaders.apply)
+      .addMiddleware(accessLog(log))
       .addMiddleware(
         errorHandler((error, stack) {
           log('UNHANDLED: $error\n$stack');
         }),
       )
-      .addMiddleware(SecurityHeaders.apply)
-      .addMiddleware(logRequests())
-      .addHandler(buildRouter().call);
+      .addHandler(
+        buildRouter(db: db, jwt: jwt, hasher: hasher, throttle: throttle).call,
+      );
 }
 
 /// Menjalankan server. Dipanggil dari `bin/server.dart` dan dari test.
+///
+/// `poweredByHeader: null` mematikan header `x-powered-by` — cara resmi shelf,
+/// karena `dart:io` akan menambahkannya kembali bila hanya dihapus di handler.
 Future<HttpServer> serve({
   required String host,
   required int port,
   required Handler handler,
 }) {
-  return shelf_io.serve(handler, host, port);
+  return shelf_io.serve(handler, host, port, poweredByHeader: null);
 }

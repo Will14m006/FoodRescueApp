@@ -4,13 +4,18 @@ import 'package:test/test.dart';
 /// Semua nilai rahasia di file ini SINTETIS dan hanya dipakai test.
 const _validSecret = 'test-only-secret-0123456789abcdef0123456789abcdef';
 
-AppConfig _config({String secret = _validSecret, String db = 'data/test.db'}) {
+AppConfig _config({
+  String secret = _validSecret,
+  String db = 'data/test.db',
+  int cost = 12,
+}) {
   return AppConfig(
     port: 8080,
     jwtSecret: secret,
     jwtTtl: const Duration(minutes: 60),
     databaseFile: db,
     logSql: false,
+    bcryptCost: cost,
   );
 }
 
@@ -44,6 +49,20 @@ void main() {
     test('menolak DATABASE_FILE kosong', () {
       expect(
         () => _config(db: '   ').validate(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('menolak BCRYPT_COST di bawah 10 (terlalu cepat dipecahkan)', () {
+      expect(
+        () => _config(cost: 8).validate(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('menolak BCRYPT_COST di atas 15 (login terlalu lambat)', () {
+      expect(
+        () => _config(cost: 16).validate(),
         throwsA(isA<FormatException>()),
       );
     });

@@ -1,7 +1,11 @@
 import 'dart:io';
 
 import 'package:food_rescue_backend/app.dart';
+import 'package:food_rescue_backend/auth/jwt_service.dart';
+import 'package:food_rescue_backend/auth/login_throttle.dart';
+import 'package:food_rescue_backend/auth/password_hasher.dart';
 import 'package:food_rescue_backend/config.dart';
+import 'package:food_rescue_backend/db/database.dart';
 
 void logLine(String message) {
   // Timestamp ISO-8601 UTC: mudah dibaca mesin maupun manusia.
@@ -19,24 +23,46 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  final dbFile = File(config.databaseFile);
+  dbFile.parent.createSync(recursive: true);
+
+  final db = AppDatabase.open(config);
+  final jwt = JwtService(secret: config.jwtSecret, ttl: config.jwtTtl);
+  final hasher = PasswordHasher(cost: config.bcryptCost);
+
   // Bind ke loopback: server lokal tidak boleh terbuka ke jaringan sekitar
   // secara default. Untuk mengakses dari HP di Wi-Fi yang sama, ubah secara
-  // sadar ke '0.0.0.0' lewat argumen:
+  // sadar lewat argumen:
   //   dart run bin/server.dart --host 0.0.0.0
   final host = _flag(args, '--host') ?? '127.0.0.1';
 
-  final handler = buildHandler(logLine);
+  final handler = buildHandler(
+    log: logLine,
+    db: db,
+    jwt: jwt,
+    hasher: hasher,
+    throttle: LoginThrottle(),
+  );
+
   final server = await serve(host: host, port: config.port, handler: handler);
 
   logLine('Food Rescue API siap di http://$host:${server.port}');
   logLine('Konfigurasi: ${config.describe()}');
 
-  // Matikan dengan rapi supaya koneksi tidak tertinggal menggantung.
-  ProcessSignal.sigint.watch().listen((_) async {
-    logLine('Menerima SIGINT, mematikan server...');
+  // Matikan dengan rapi supaya koneksi & database tidak tertinggal.
+  Future<void> shutdown() async {
     await server.close(force: true);
+    await db.close();
     exit(0);
+  }
+
+  ProcessSignal.sigint.watch().listen((_) {
+    logLine('Menerima SIGINT, mematikan server...');
+    shutdown();
   });
+  if (!Platform.isWindows) {
+    ProcessSignal.sigterm.watch().listen((_) => shutdown());
+  }
 }
 
 /// Membaca `--flag nilai` sederhana tanpa menambah dependency arg parser.

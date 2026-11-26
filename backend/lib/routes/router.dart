@@ -1,14 +1,24 @@
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../auth/jwt_service.dart';
+import '../auth/login_throttle.dart';
+import '../auth/password_hasher.dart';
+import '../db/database.dart';
 import '../middleware/api_response.dart';
+import 'auth_routes.dart';
 
 /// Merakit seluruh route.
 ///
-/// `server.dart` hanya memanggil fungsi ini; penambahan fitur baru tidak boleh
-/// mengubah entry point. Router sengaja stateless — tidak menyentuh variabel
-/// global — supaya test bisa menjalankan beberapa instance secara paralel.
-Router buildRouter() {
+/// Semua dependensi (database, JWT, hasher) **disuntikkan**, bukan singleton
+/// global. Test bisa menjalankan beberapa instance dengan database in-memory
+/// berbeda secara paralel tanpa saling mengganggu.
+Router buildRouter({
+  required AppDatabase db,
+  required JwtService jwt,
+  required PasswordHasher hasher,
+  required LoginThrottle throttle,
+}) {
   final router = Router();
 
   // Liveness: dipakai health check, CI, dan Docker HEALTHCHECK.
@@ -21,7 +31,12 @@ Router buildRouter() {
     });
   });
 
-  // Semua rute tak dikenal dijawab JSON, bukan halaman bawaan shelf.
+  router.mount(
+    '/',
+    authRoutes(db: db, jwt: jwt, hasher: hasher, throttle: throttle).call,
+  );
+
+  // Rute tak dikenal dijawab JSON, bukan halaman bawaan shelf.
   router.all('/<ignored|.*>', (Request request) {
     return ApiResponse.error(404, 'Endpoint tidak ditemukan.');
   });

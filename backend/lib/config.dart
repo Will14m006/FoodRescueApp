@@ -15,6 +15,7 @@ class AppConfig {
     required this.jwtTtl,
     required this.databaseFile,
     required this.logSql,
+    required this.bcryptCost,
   });
 
   final int port;
@@ -22,6 +23,9 @@ class AppConfig {
   final Duration jwtTtl;
   final String databaseFile;
   final bool logSql;
+
+  /// Log2 jumlah putaran bcrypt. 12 ≈ 320 ms di mesin dev.
+  final int bcryptCost;
 
   /// Placeholder yang ada di `.env.example`. Kalau masih terpakai berarti
   /// developer lupa menyalin/mengisi `.env`.
@@ -67,6 +71,7 @@ class AppConfig {
       jwtTtl: Duration(minutes: ttlMinutes),
       databaseFile: read('DATABASE_FILE') ?? 'data/food_rescue.db',
       logSql: (read('LOG_SQL') ?? 'false').toLowerCase() == 'true',
+      bcryptCost: int.tryParse(read('BCRYPT_COST') ?? '') ?? 12,
     );
 
     config.validate();
@@ -97,11 +102,18 @@ class AppConfig {
     if (databaseFile.trim().isEmpty) {
       throw const FormatException('DATABASE_FILE tidak boleh kosong.');
     }
+    if (bcryptCost < 10 || bcryptCost > 15) {
+      throw const FormatException(
+        'BCRYPT_COST di luar batas aman (10..15). Nilai kecil membuat hash '
+        'mudah dipecahkan, nilai besar membuat login lambat.',
+      );
+    }
   }
 
   /// Versi aman untuk dicetak ke log: tidak pernah memuat secret.
   String describe() => 'port=$port, db=$databaseFile, '
-      'jwtTtl=${jwtTtl.inMinutes}m, jwtSecret=<dijaga>, logSql=$logSql';
+      'jwtTtl=${jwtTtl.inMinutes}m, jwtSecret=<dijaga>, logSql=$logSql, '
+      'bcryptCost=$bcryptCost';
 
   @override
   String toString() => 'AppConfig(${describe()})';
