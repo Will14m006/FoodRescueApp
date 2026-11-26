@@ -1,0 +1,23 @@
+# ===== Food Rescue — secrets & artifacts =====
+# .env / .env.* SELALU di-ignore. Hanya .env.example yang boleh masuk repo.
+# Pola ini berlaku untuk semua subfolder (backend/), jadi tidak perlu
+# aturan tambahan di backend/.gitignore.
+.env
+.env.*
+!.env.example
+
+# Database lokal (SQLite) — berisi data user, JANGAN di-commit.
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# JWT / signing material kalau suatu saat disimpan sebagai file
+*.pem
+*.p12
+*.jks
+*.keystore
+
+# Android release signing (lihat food_rescue_app/android/key.properties)
+key.properties

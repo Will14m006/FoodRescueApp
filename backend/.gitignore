@@ -1,0 +1,14 @@
+# Artefak Dart
+.dart_tool/
+build/
+
+# Konfigurasi rahasia - TIDAK PERNAH di-commit.
+.env
+.env.*
+
+# Database lokal
+data/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
