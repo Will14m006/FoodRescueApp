@@ -11,6 +11,13 @@ part 'database.g.dart';
 /// migrasi nanti tidak bergantung pada urutan enum.
 enum UserRole { buyer, merchant, admin }
 
+/// Status pesanan. Nilai teksnya lowercase (`pending`/`completed`/`cancelled`)
+/// karena itu yang sudah dipakai `OrderStatusX.jsonValue` di aplikasi Flutter.
+///
+/// Aturan transisi (Architecture.md §6.8): hanya `pending` yang boleh berubah,
+/// ke `completed` (divalidasi merchant) atau `cancelled`. Tidak ada rollback.
+enum OrderStatus { pending, completed, cancelled }
+
 class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get email => text().withLength(min: 3, max: 254).unique()();
@@ -52,7 +59,8 @@ class Orders extends Table {
   IntColumn get quantity => integer()();
   IntColumn get totalPrice => integer()();
   TextColumn get pickupCode => text().unique()();
-  TextColumn get status => text().withDefault(const Constant('PENDING'))();
+  TextColumn get status =>
+      textEnum<OrderStatus>().withDefault(const Constant('pending'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 

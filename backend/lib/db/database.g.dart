@@ -1408,16 +1408,16 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
-  static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  late final GeneratedColumn<String> status = GeneratedColumn<String>(
-    'status',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('PENDING'),
-  );
+  late final GeneratedColumnWithTypeConverter<OrderStatus, String> status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('pending'),
+      ).withConverter<OrderStatus>($OrdersTable.$converterstatus);
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1496,12 +1496,6 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     } else if (isInserting) {
       context.missing(_pickupCodeMeta);
     }
-    if (data.containsKey('status')) {
-      context.handle(
-        _statusMeta,
-        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
-      );
-    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1541,10 +1535,12 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.string,
         data['${effectivePrefix}pickup_code'],
       )!,
-      status: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}status'],
-      )!,
+      status: $OrdersTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1556,6 +1552,9 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
   $OrdersTable createAlias(String alias) {
     return $OrdersTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<OrderStatus, String, String> $converterstatus =
+      const EnumNameConverter<OrderStatus>(OrderStatus.values);
 }
 
 class Order extends DataClass implements Insertable<Order> {
@@ -1565,7 +1564,7 @@ class Order extends DataClass implements Insertable<Order> {
   final int quantity;
   final int totalPrice;
   final String pickupCode;
-  final String status;
+  final OrderStatus status;
   final DateTime createdAt;
   const Order({
     required this.id,
@@ -1586,7 +1585,11 @@ class Order extends DataClass implements Insertable<Order> {
     map['quantity'] = Variable<int>(quantity);
     map['total_price'] = Variable<int>(totalPrice);
     map['pickup_code'] = Variable<String>(pickupCode);
-    map['status'] = Variable<String>(status);
+    {
+      map['status'] = Variable<String>(
+        $OrdersTable.$converterstatus.toSql(status),
+      );
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1616,7 +1619,9 @@ class Order extends DataClass implements Insertable<Order> {
       quantity: serializer.fromJson<int>(json['quantity']),
       totalPrice: serializer.fromJson<int>(json['totalPrice']),
       pickupCode: serializer.fromJson<String>(json['pickupCode']),
-      status: serializer.fromJson<String>(json['status']),
+      status: $OrdersTable.$converterstatus.fromJson(
+        serializer.fromJson<String>(json['status']),
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1630,7 +1635,9 @@ class Order extends DataClass implements Insertable<Order> {
       'quantity': serializer.toJson<int>(quantity),
       'totalPrice': serializer.toJson<int>(totalPrice),
       'pickupCode': serializer.toJson<String>(pickupCode),
-      'status': serializer.toJson<String>(status),
+      'status': serializer.toJson<String>(
+        $OrdersTable.$converterstatus.toJson(status),
+      ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1642,7 +1649,7 @@ class Order extends DataClass implements Insertable<Order> {
     int? quantity,
     int? totalPrice,
     String? pickupCode,
-    String? status,
+    OrderStatus? status,
     DateTime? createdAt,
   }) => Order(
     id: id ?? this.id,
@@ -1718,7 +1725,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<int> quantity;
   final Value<int> totalPrice;
   final Value<String> pickupCode;
-  final Value<String> status;
+  final Value<OrderStatus> status;
   final Value<DateTime> createdAt;
   const OrdersCompanion({
     this.id = const Value.absent(),
@@ -1773,7 +1780,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Value<int>? quantity,
     Value<int>? totalPrice,
     Value<String>? pickupCode,
-    Value<String>? status,
+    Value<OrderStatus>? status,
     Value<DateTime>? createdAt,
   }) {
     return OrdersCompanion(
@@ -1810,7 +1817,9 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       map['pickup_code'] = Variable<String>(pickupCode.value);
     }
     if (status.present) {
-      map['status'] = Variable<String>(status.value);
+      map['status'] = Variable<String>(
+        $OrdersTable.$converterstatus.toSql(status.value),
+      );
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2538,7 +2547,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
       required int quantity,
       required int totalPrice,
       required String pickupCode,
-      Value<String> status,
+      Value<OrderStatus> status,
       Value<DateTime> createdAt,
     });
 typedef $$OrdersTableUpdateCompanionBuilder =
@@ -2549,7 +2558,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<int> quantity,
       Value<int> totalPrice,
       Value<String> pickupCode,
-      Value<String> status,
+      Value<OrderStatus> status,
       Value<DateTime> createdAt,
     });
 
@@ -2592,10 +2601,11 @@ class $$OrdersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get status => $composableBuilder(
-    column: $table.status,
-    builder: (column) => ColumnFilters(column),
-  );
+  ColumnWithTypeConverterFilters<OrderStatus, OrderStatus, String> get status =>
+      $composableBuilder(
+        column: $table.status,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
@@ -2684,7 +2694,7 @@ class $$OrdersTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get status =>
+  GeneratedColumnWithTypeConverter<OrderStatus, String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
@@ -2725,7 +2735,7 @@ class $$OrdersTableTableManager
                 Value<int> quantity = const Value.absent(),
                 Value<int> totalPrice = const Value.absent(),
                 Value<String> pickupCode = const Value.absent(),
-                Value<String> status = const Value.absent(),
+                Value<OrderStatus> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => OrdersCompanion(
                 id: id,
@@ -2745,7 +2755,7 @@ class $$OrdersTableTableManager
                 required int quantity,
                 required int totalPrice,
                 required String pickupCode,
-                Value<String> status = const Value.absent(),
+                Value<OrderStatus> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => OrdersCompanion.insert(
                 id: id,

@@ -149,6 +149,30 @@ String requireString(Map<String, dynamic> body, String key, {int? maxLength}) {
   return trimmed;
 }
 
+/// Membaca nilai integer wajib dari body JSON, dengan batas bawah/atas.
+int requireInt(
+  Map<String, dynamic> body,
+  String key, {
+  required int min,
+  required int max,
+}) {
+  final value = body[key];
+  // `true`/`"5"` sengaja ditolak: klien yang mengirim tipe salah harus tahu,
+  // bukan ditebak diam-diam.
+  if (value is! int) {
+    throw ApiException(422, 'Field "$key" wajib bilangan bulat.',
+        code: 'invalid_$key');
+  }
+  if (value < min || value > max) {
+    throw ApiException(
+      422,
+      'Field "$key" harus antara $min dan $max.',
+      code: 'invalid_$key',
+    );
+  }
+  return value;
+}
+
 /// Middleware terakhir: mengubah exception menjadi respons JSON yang aman.
 ///
 /// [ApiException] diteruskan apa adanya (status + pesan yang sudah ditulis

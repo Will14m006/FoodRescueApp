@@ -7,6 +7,7 @@ import '../auth/login_throttle.dart';
 import '../auth/password_hasher.dart';
 import '../db/database.dart';
 import '../middleware/api_response.dart';
+import 'mappers.dart';
 
 /// Semua endpoint `/auth/*`.
 ///
@@ -199,11 +200,6 @@ UserRole _selfServiceRole(Object? raw) {
 }
 
 /// Bentuk user yang boleh keluar ke klien. `passwordHash` **tidak pernah**
-/// ikut, di endpoint mana pun.
-Map<String, dynamic> publicUser(User user) => {
-      'id': user.id,
-      'email': user.email,
-      'name': user.name,
-      'role': user.role.name,
-      'createdAt': user.createdAt.toUtc().toIso8601String(),
-    };
+/// ikut, di endpoint mana pun. Implementasinya di `mappers.dart` supaya hanya
+/// ada satu definisi.
+Map<String, dynamic> publicUser(User user) => userJson(user);
