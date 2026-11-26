@@ -16,6 +16,7 @@ class AppConfig {
     required this.databaseFile,
     required this.logSql,
     required this.bcryptCost,
+    this.corsOrigins = const [],
   });
 
   final int port;
@@ -23,6 +24,10 @@ class AppConfig {
   final Duration jwtTtl;
   final String databaseFile;
   final bool logSql;
+
+  /// Origin yang boleh memanggil API dari browser. Kosong = CORS mati
+  /// (default aman: client Android tidak butuh CORS).
+  final List<String> corsOrigins;
 
   /// Log2 jumlah putaran bcrypt. 12 ≈ 320 ms di mesin dev.
   final int bcryptCost;
@@ -72,6 +77,11 @@ class AppConfig {
       databaseFile: read('DATABASE_FILE') ?? 'data/food_rescue.db',
       logSql: (read('LOG_SQL') ?? 'false').toLowerCase() == 'true',
       bcryptCost: int.tryParse(read('BCRYPT_COST') ?? '') ?? 12,
+      corsOrigins: (read('CORS_ORIGINS') ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList(),
     );
 
     config.validate();
@@ -113,7 +123,7 @@ class AppConfig {
   /// Versi aman untuk dicetak ke log: tidak pernah memuat secret.
   String describe() => 'port=$port, db=$databaseFile, '
       'jwtTtl=${jwtTtl.inMinutes}m, jwtSecret=<dijaga>, logSql=$logSql, '
-      'bcryptCost=$bcryptCost';
+      'bcryptCost=$bcryptCost, cors=${corsOrigins.isEmpty ? 'mati' : corsOrigins.join('|')}';
 
   @override
   String toString() => 'AppConfig(${describe()})';

@@ -9,6 +9,7 @@ import 'auth/password_hasher.dart';
 import 'db/database.dart';
 import 'middleware/access_log.dart';
 import 'middleware/api_response.dart';
+import 'middleware/cors.dart';
 import 'middleware/security_headers.dart';
 import 'routes/router.dart';
 
@@ -32,9 +33,14 @@ Handler buildHandler({
   required JwtService jwt,
   required PasswordHasher hasher,
   required LoginThrottle throttle,
+  List<String> corsOrigins = const [],
 }) {
   return const Pipeline()
+      // SecurityHeaders paling luar: preflight 204 buatan CORS pun tetap
+      // mendapat header keamanan.
       .addMiddleware(SecurityHeaders.apply)
+      // CORS di luar accessLog: preflight tidak perlu masuk log.
+      .addMiddleware(Cors(corsOrigins).apply)
       .addMiddleware(accessLog(log))
       .addMiddleware(
         errorHandler((error, stack) {

@@ -21,3 +21,6 @@
 
 # Android release signing (lihat food_rescue_app/android/key.properties)
 key.properties
+
+# Artifact build Android (Gradle menaruh sebagian output di sini).
+food_rescue_app/android/build/

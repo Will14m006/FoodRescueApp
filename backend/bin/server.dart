@@ -42,6 +42,7 @@ Future<void> main(List<String> args) async {
     jwt: jwt,
     hasher: hasher,
     throttle: LoginThrottle(),
+    corsOrigins: config.corsOrigins,
   );
 
   final server = await serve(host: host, port: config.port, handler: handler);
