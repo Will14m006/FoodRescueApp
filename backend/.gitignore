@@ -3,10 +3,12 @@
 build/
 
 # Konfigurasi rahasia - TIDAK PERNAH di-commit.
+# .env.example sengaja di-un-ignore: template boleh dibagikan, nilai nyata tidak.
 .env
 .env.*
+!.env.example
 
-# Database lokal
+# Database lokal (berisi data user)
 data/
 *.sqlite
 *.sqlite3
