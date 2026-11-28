@@ -145,9 +145,19 @@ void main() {
     );
   });
 
-  test('model invalid: pesanan tanpa pickupCode melempar ApiException', () {
+  test('pesanan tanpa pickupCode tetap valid (respons merchant)', () {
     final json = _validOrder();
     json.remove('pickupCode');
+
+    // Merchant memang tidak menerima kode; model harus menerimanya, bukan
+    // melempar error dan membuat seluruh daftar pesanan gagal tampil.
+    final order = Order.fromJson(json);
+    expect(order.pickupCode, isNull);
+  });
+
+  test('model invalid: pickupCode bertipe salah melempar ApiException', () {
+    final json = _validOrder();
+    json['pickupCode'] = 123;
 
     expect(
       () => Order.fromJson(json),

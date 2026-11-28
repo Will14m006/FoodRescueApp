@@ -194,7 +194,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       Text('KODE PICK-UP', style: AppTextStyles.caption),
                       const SizedBox(height: AppSpacing.xs + 2),
                       Text(
-                        order.pickupCode,
+                        order.pickupCode ?? '-',
                         style: AppTextStyles.display.copyWith(
                           fontSize: 26,
                           color: AppColors.primaryDark,

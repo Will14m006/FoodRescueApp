@@ -459,6 +459,55 @@ void main() {
 
       expect(api.logs.join('\n').contains(code), isFalse);
     });
+
+    /// Merchant yang bisa membaca kode tidak perlu memintanya dari pembeli,
+    /// jadi verifikasi kehilangan makna. Kode hanya untuk pembeli & admin.
+    test('merchant TIDAK menerima pickupCode, buyer & admin menerima', () async {
+      final (buyer, _, _) = await registerAndLogin(api);
+      final created = await api.json(await api.request(
+        'POST',
+        '/orders',
+        token: buyer,
+        body: {'foodId': foodId, 'quantity': 1},
+      ));
+      final orderId = (created['order'] as Map)['id'];
+
+      final asBuyer =
+          await api.json(await api.request('GET', '/orders', token: buyer));
+      expect(
+        ((asBuyer['orders'] as List).single as Map)['pickupCode'],
+        startsWith('RESCUE-'),
+      );
+
+      final asMerchant = await api.json(
+        await api.request('GET', '/orders', token: merchantToken),
+      );
+      expect(
+        ((asMerchant['orders'] as List).single as Map).containsKey(
+          'pickupCode',
+        ),
+        isFalse,
+        reason: 'kode tidak boleh terlihat oleh merchant',
+      );
+
+      // Detail satu pesanan juga tidak boleh membocorkan kode.
+      final detail = await api.json(await api.request(
+        'GET',
+        '/orders/$orderId',
+        token: merchantToken,
+      ));
+      expect((detail['order'] as Map).containsKey('pickupCode'), isFalse);
+
+      final adminToken =
+          await createAdminToken(api, email: 'adm@example.com');
+      final asAdmin = await api.json(
+        await api.request('GET', '/orders', token: adminToken),
+      );
+      expect(
+        ((asAdmin['orders'] as List).single as Map)['pickupCode'],
+        startsWith('RESCUE-'),
+      );
+    });
   });
 
   group('validasi input helper', () {

@@ -149,7 +149,7 @@ class FakeOrderRepository implements OrderRepository {
     if (index < 0) throw const ApiException('Pesanan tidak ditemukan.');
 
     final order = _orders[index];
-    if (order.pickupCode != pickupCode) {
+    if (order.pickupCode == null || order.pickupCode != pickupCode) {
       throw const ApiException('Kode pick-up tidak cocok.', statusCode: 422);
     }
 

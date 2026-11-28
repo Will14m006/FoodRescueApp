@@ -51,10 +51,14 @@ Map<String, dynamic> orderJson(
   required String buyerName,
   required String foodName,
   required String merchantName,
+  /// Kode pick-up hanya untuk pembeli. Merchant yang bisa melihat kode tidak
+  /// perlu meminta kode dari pembeli saat verifikasi — tombol "Selesai" jadi
+  /// formalitas tanpa bukti serah-terima.
+  bool includePickupCode = false,
 }) =>
     {
       'id': order.id,
-      'pickupCode': order.pickupCode,
+      if (includePickupCode) 'pickupCode': order.pickupCode,
       'buyerId': order.buyerId,
       'buyerName': buyerName,
       'foodId': order.foodId,

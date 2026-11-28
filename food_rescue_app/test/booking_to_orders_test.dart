@@ -159,7 +159,7 @@ void main() {
     final done = await repo.complete(
       token: 'token-merchant',
       orderId: order.id,
-      pickupCode: order.pickupCode,
+      pickupCode: order.pickupCode!,
     );
     expect(done.status, OrderStatus.completed);
   });

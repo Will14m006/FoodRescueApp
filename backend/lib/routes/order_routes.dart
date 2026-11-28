@@ -41,7 +41,7 @@ Router orderRoutes({required AppDatabase db, required JwtService jwt}) {
       );
 
       return ApiResponse.created({
-        'order': await orderJsonById(db, order.id),
+        'order': await orderJsonById(db, order.id, viewerRole: auth.role),
       });
     }),
   );
@@ -83,7 +83,7 @@ Router orderRoutes({required AppDatabase db, required JwtService jwt}) {
       final rows = await statement.get();
       final orders = <Map<String, dynamic>>[];
       for (final row in rows) {
-        orders.add(await orderJsonById(db, row.id));
+        orders.add(await orderJsonById(db, row.id, viewerRole: auth.role));
       }
       return ApiResponse.ok({'orders': orders, 'count': orders.length});
     }),
@@ -100,7 +100,9 @@ Router orderRoutes({required AppDatabase db, required JwtService jwt}) {
       if (order == null || !await mayView(db, auth, order)) {
         throw const ApiException(404, 'Pesanan tidak ditemukan.');
       }
-      return ApiResponse.ok({'order': await orderJsonById(db, orderId!)});
+      return ApiResponse.ok({
+        'order': await orderJsonById(db, orderId!, viewerRole: auth.role),
+      });
     }),
   );
 
@@ -140,7 +142,9 @@ Router orderRoutes({required AppDatabase db, required JwtService jwt}) {
         await db.update(db.orders).replace(
               order.copyWith(status: OrderStatus.completed),
             );
-        return ApiResponse.ok({'order': await orderJsonById(db, orderId!)});
+        return ApiResponse.ok({
+          'order': await orderJsonById(db, orderId!, viewerRole: auth.role),
+        });
       },
     ),
   );
@@ -189,7 +193,9 @@ Router orderRoutes({required AppDatabase db, required JwtService jwt}) {
         );
       });
 
-      return ApiResponse.ok({'order': await orderJsonById(db, orderId!)});
+      return ApiResponse.ok({
+        'order': await orderJsonById(db, orderId!, viewerRole: auth.role),
+      });
     }),
   );
 
@@ -306,10 +312,14 @@ Future<bool> mayView(AppDatabase db, AuthUser auth, Order order) async {
 }
 
 /// Merakit JSON pesanan lengkap dengan nama pembeli, makanan, dan toko.
+///
+/// [viewerRole] menentukan apakah `pickupCode` ikut dikirim. Hanya pembeli
+/// pemilik pesanan yang boleh melihatnya — lihat [orderJson].
 Future<Map<String, dynamic>> orderJsonById(
   AppDatabase db,
-  int orderId,
-) async {
+  int orderId, {
+  UserRole? viewerRole,
+}) async {
   final order = await _orderById(db, orderId);
   if (order == null) throw StateError('Order $orderId hilang setelah dibuat.');
 
@@ -332,5 +342,7 @@ Future<Map<String, dynamic>> orderJsonById(
     buyerName: buyer?.name ?? 'Pembeli',
     foodName: food?.name ?? 'Makanan surplus',
     merchantName: merchant?.storeName ?? 'Mitra Food Rescue',
+    includePickupCode:
+        viewerRole == UserRole.buyer || viewerRole == UserRole.admin,
   );
 }

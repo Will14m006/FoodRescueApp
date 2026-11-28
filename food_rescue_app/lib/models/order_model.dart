@@ -53,7 +53,10 @@ extension OrderStatusX on OrderStatus {
 
 class Order {
   final int id;
-  final String pickupCode;
+
+  /// Null untuk merchant: kode pick-up hanya untuk pembeli & admin. Merchant
+  /// yang melihat kode tidak perlu memintanya, jadi verifikasi jadi kosong.
+  final String? pickupCode;
   final int buyerId;
   final String buyerName;
   final int foodId;
@@ -71,7 +74,6 @@ class Order {
 
   const Order({
     required this.id,
-    required this.pickupCode,
     required this.buyerName,
     required this.surplusFoodName,
     required this.quantity,
@@ -82,6 +84,7 @@ class Order {
     this.foodId = 0,
     this.merchantName = 'Mitra Food Rescue',
     this.proofPhoto,
+    this.pickupCode,
   });
 
   Order copyWith({
@@ -115,7 +118,7 @@ class Order {
     final createdAt = json['createdAt'];
 
     if (id is! int) throw const ApiException('ID pesanan tidak valid.');
-    if (pickupCode is! String || pickupCode.isEmpty) {
+    if (pickupCode != null && (pickupCode is! String || pickupCode.isEmpty)) {
       throw const ApiException('Kode pick-up tidak diterima.');
     }
     if (quantity is! int || quantity < 1) {

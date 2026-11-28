@@ -95,23 +95,32 @@ class OrderCard extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.md + 2),
         Flexible(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-            child: Text(
-              order.pickupCode,
-              style: AppTextStyles.base.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          child: order.pickupCode == null
+              ? Text(
+                  'Kode ditunjukkan pembeli',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textHint,
+                    fontSize: 11,
+                  ),
+                )
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    order.pickupCode!,
+                    style: AppTextStyles.base.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
         ),
       ],
     );

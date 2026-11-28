@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/media/food_photo_picker.dart';
+import '../core/network/api_exception.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
@@ -369,7 +370,7 @@ class _PendingOrderCard extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${order.buyerName} · ${order.quantity} porsi · ${order.pickupCode}',
+            '${order.buyerName} · ${order.quantity} porsi',
             style: AppTextStyles.caption,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -441,7 +442,7 @@ class _PendingOrderCard extends ConsumerWidget {
             pickupCode: code,
           );
       if (context.mounted) {
-        AppFeedback.success(context, 'Pesanan ${order.pickupCode} selesai.');
+        AppFeedback.success(context, 'Pesanan ${order.buyerName} selesai.');
       }
     } on Exception catch (e) {
       if (context.mounted) AppFeedback.error(context, '$e');
@@ -454,7 +455,7 @@ class _PendingOrderCard extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Batalkan Pesanan'),
         content: Text(
-          'Batalkan pesanan ${order.pickupCode}? Kuota akan dikembalikan.',
+          'Batalkan pesanan ${order.buyerName}? Kuota akan dikembalikan.',
         ),
         actions: [
           TextButton(
@@ -992,6 +993,9 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
   // meninggalkan file yatim.
   PickedPhoto? picked;
 
+  // Pesan error yang tampil DI DALAM sheet, di samping tombol Simpan.
+  String? formError;
+
   final save = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -1095,8 +1099,42 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
+            if (formError != null) ...[
+              Text(
+                formError!,
+                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             ElevatedButton(
-              onPressed: () => Navigator.pop(sheetContext, true),
+              onPressed: () {
+                // Validasi di sini, bukan setelah sheet ditutup: pesan error
+                // harus terlihat di samping field yang salah.
+                final o = int.tryParse(original.text.trim());
+                final d = int.tryParse(discount.text.trim());
+                final q = int.tryParse(quota.text.trim());
+                final String? error;
+                if (name.text.trim().length < 2) {
+                  error = 'Nama makanan minimal 2 karakter.';
+                } else if (o == null || o <= 0) {
+                  error = 'Harga asli harus angka lebih dari 0.';
+                } else if (d == null || d <= 0) {
+                  error = 'Harga diskon harus angka lebih dari 0.';
+                } else if (d > o) {
+                  error = 'Harga diskon tidak boleh lebih besar dari harga asli '
+                      '(Rp ${Formatters.rupiah(o)}).';
+                } else if (q == null || q < 1) {
+                  error = 'Kuota minimal 1 porsi.';
+                } else {
+                  error = null;
+                }
+
+                if (error != null) {
+                  setSheetState(() => formError = error);
+                  return;
+                }
+                Navigator.pop(sheetContext, true);
+              },
               child: const Text('Simpan'),
             ),
           ],
@@ -1125,7 +1163,11 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
         discountPrice == null ||
         quotaValue == null ||
         discountPrice > originalPrice) {
-      throw StateError('Harga/kuota tidak valid (diskon ≤ harga asli).');
+      // ApiException (bukan StateError) supaya tertangkap `on Exception`
+      // di blok catch bawah. P8: error tetap tampil, tidak hilang diam-diam.
+      throw const ApiException(
+        'Harga/kuota tidak valid (diskon harus ≤ harga asli).',
+      );
     }
 
     final created = await ref.read(merchantFoodsProvider.notifier).create(
