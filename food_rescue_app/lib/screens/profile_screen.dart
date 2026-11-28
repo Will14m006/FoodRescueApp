@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
-import '../core/ui/app_feedback.dart';
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
+import '../repositories/auth_repository.dart';
 import '../routes/app_routes.dart';
 import '../widgets/responsive_body.dart';
 
@@ -45,11 +45,6 @@ class ProfileScreen extends ConsumerWidget {
         (route) => false,
       );
     }
-  }
-
-  /// P8: menu yang belum punya layar tetap memberi respons, tidak diam.
-  void _comingSoon(BuildContext context, String feature) {
-    AppFeedback.info(context, '$feature segera hadir di versi berikutnya.');
   }
 
   /// FAQ singkat — pertanyaan yang benar-benar muncul saat memakai aplikasi.
@@ -132,229 +127,243 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // === Header ===
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg + 4,
-                AppSpacing.xl,
-                AppSpacing.xxxl + 4,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.gradientStart, AppColors.gradientEnd],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Header + kartu statistik + daftar menu dijadikan SATU
+            // CustomScrollView. Dulu header & statistik berada di luar
+            // scroll, sehingga layar pendek (atau zoom teks besar) membuat
+            // Column meluap 1198 px dan tidak bisa digulir sama sekali.
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _Header(user: user)),
+                SliverToBoxAdapter(
+                  child: ResponsiveBody(
+                    maxWidth: 720,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.lg + 4,
+                        AppSpacing.xl,
+                        AppSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          _StatCard(
+                            icon: Icons.receipt_long_rounded,
+                            value:
+                                '${ref.watch(ordersProvider).valueOrNull?.length ?? 0}',
+                            label: 'Total Pesanan',
+                          ),
+                          const SizedBox(width: AppSpacing.md + 2),
+                          _StatCard(
+                            icon: Icons.delivery_dining_rounded,
+                            value: '${ref.watch(activeOrdersProvider).length}',
+                            label: 'Sedang Berjalan',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Profil',
-                        style: AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Notifikasi',
-                        onPressed: () => _comingSoon(context, 'Notifikasi'),
-                        icon: const Icon(
-                          Icons.notifications_rounded,
-                          color: AppColors.textOnPrimary,
-                          size: 22,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      color: AppColors.textOnPrimary.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.textOnPrimary.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: AppColors.textOnPrimary,
-                      size: 38,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md + 2),
-                  Text(
-                    user?.name ?? 'Pengguna',
-                    style: AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
-                  ),
-                  const SizedBox(height: AppSpacing.xs + 2),
-                  Text(
-                    user?.email ?? 'Belum login',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textOnPrimary.withValues(alpha: 0.9),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.textOnPrimary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      user?.role.label ?? '-',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textOnPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // === Statistik (dari server, bukan angka karangan) ===
-            ResponsiveBody(
-              maxWidth: 720,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl,
-                  AppSpacing.lg + 4,
-                  AppSpacing.xl,
-                  AppSpacing.md + 2,
-                ),
-                child: Row(
-                  children: [
-                    _StatCard(
-                      emoji: '🧾',
-                      value: '${ref.watch(ordersProvider).valueOrNull?.length ?? 0}',
-                      label: 'Total Pesanan',
-                    ),
-                    const SizedBox(width: AppSpacing.md + 2),
-                    _StatCard(
-                      emoji: '📦',
-                      value: '${ref.watch(activeOrdersProvider).length}',
-                      label: 'Sedang Berjalan',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // === Menu ===
-            Expanded(
-              // P8: ListView (bukan Column + Spacer) supaya layar kecil tidak
-              // overflow dan menu tetap bisa di-scroll.
-              child: ResponsiveBody(
-                maxWidth: 720,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.xl,
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    // ResponsiveBody tidak bisa dipakai langsung di sliver,
+                    // jadi padding kiri-kanan dihitung dari lebar layar.
+                    _horizontalInset(constraints.maxWidth),
                     0,
-                    AppSpacing.xl,
+                    _horizontalInset(constraints.maxWidth),
                     AppSpacing.xxl,
                   ),
-                  children: [
-                    _MenuTile(
-                      icon: Icons.edit_rounded,
-                      title: 'Edit Profil',
-                      subtitle: 'Ubah nama & email kamu',
-                      onTap: () async {
-                        await Navigator.pushNamed(
-                          context,
-                          AppRoutes.profileEdit,
-                        );
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.lock_reset_rounded,
-                      title: 'Ubah Password',
-                      subtitle: 'Ganti password akun',
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.changePassword,
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _MenuTile(
+                        icon: Icons.edit_rounded,
+                        title: 'Edit Profil',
+                        subtitle: 'Ubah nama & email kamu',
+                        onTap: () async {
+                          await Navigator.pushNamed(
+                            context,
+                            AppRoutes.profileEdit,
+                          );
+                        },
                       ),
-                    ),
-                    _MenuTile(
-                      icon: Icons.delivery_dining_rounded,
-                      title: 'Status Pesanan',
-                      subtitle: 'Pantau & kelola pesanan aktif',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.orderStatus),
-                    ),
-                    _MenuTile(
-                      icon: Icons.receipt_long_rounded,
-                      title: 'Riwayat Pesanan',
-                      subtitle: 'Lihat semua pesanan kamu (read-only)',
-                      onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.orders),
-                    ),
-                    _MenuTile(
-                      icon: Icons.location_on_rounded,
-                      title: 'Alamat',
-                      subtitle: 'Atur alamat pengambilan',
-                      onTap: () => _comingSoon(context, 'Pengaturan alamat'),
-                    ),
-                    _MenuTile(
-                      icon: Icons.notifications_rounded,
-                      title: 'Notifikasi',
-                      subtitle: 'Atur preferensi notifikasi',
-                      onTap: () => _comingSoon(context, 'Pengaturan notifikasi'),
-                    ),
-                    _MenuTile(
-                      icon: Icons.help_outline_rounded,
-                      title: 'Bantuan',
-                      subtitle: 'Pusat bantuan & FAQ',
-                      onTap: () => _showHelp(context),
-                    ),
-                    _MenuTile(
-                      icon: Icons.info_outline_rounded,
-                      title: 'Tentang Aplikasi',
-                      subtitle: 'Versi 1.0.0',
-                      onTap: () => _showAbout(context),
-                    ),
-                    _MenuTile(
-                      icon: Icons.logout_rounded,
-                      title: 'Keluar',
-                      subtitle: 'Logout dari akun ini',
-                      onTap: () => _logout(context, ref),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Food Rescue App • PBL Pemrograman Mobile',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.caption,
-                    ),
-                  ],
+                      _MenuTile(
+                        icon: Icons.lock_reset_rounded,
+                        title: 'Ubah Password',
+                        subtitle: 'Ganti password akun',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.changePassword,
+                        ),
+                      ),
+                      _MenuTile(
+                        icon: Icons.delivery_dining_rounded,
+                        title: 'Status Pesanan',
+                        subtitle: 'Pantau & kelola pesanan aktif',
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.orderStatus),
+                      ),
+                      _MenuTile(
+                        icon: Icons.receipt_long_rounded,
+                        title: 'Riwayat Pesanan',
+                        subtitle: 'Lihat semua pesanan kamu (read-only)',
+                        onTap: () =>
+                            Navigator.pushNamed(context, AppRoutes.orders),
+                      ),
+                      _MenuTile(
+                        icon: Icons.help_outline_rounded,
+                        title: 'Bantuan',
+                        subtitle: 'Pusat bantuan & FAQ',
+                        onTap: () => _showHelp(context),
+                      ),
+                      _MenuTile(
+                        icon: Icons.info_outline_rounded,
+                        title: 'Tentang Aplikasi',
+                        subtitle: 'Versi 1.0.0',
+                        onTap: () => _showAbout(context),
+                      ),
+                      _MenuTile(
+                        icon: Icons.logout_rounded,
+                        title: 'Keluar',
+                        subtitle: 'Logout dari akun ini',
+                        destructive: true,
+                        onTap: () => _logout(context, ref),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Food Rescue App • PBL Pemrograman Mobile',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.caption,
+                      ),
+                    ]),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Padding samping yang sama dengan [ResponsiveBody] (maks 720 px).
+  double _horizontalInset(double width) {
+    const maxWidth = 720.0;
+    if (width <= maxWidth) return AppSpacing.xl;
+    return (width - maxWidth) / 2 + AppSpacing.xl;
+  }
+}
+
+/// Header gradient: judul, avatar, nama, email, dan peran.
+class _Header extends StatelessWidget {
+  const _Header({required this.user});
+
+  final AuthUser? user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.lg + 4,
+        AppSpacing.xl,
+        AppSpacing.xxxl + 4,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.gradientStart, AppColors.gradientEnd],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'Profil',
+                style: AppTextStyles.headline
+                    .copyWith(color: AppColors.textOnPrimary),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Kembali',
+                onPressed: () => Navigator.maybePop(context),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.textOnPrimary,
+                  size: 22,
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: AppColors.textOnPrimary.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.textOnPrimary.withValues(alpha: 0.55),
+                width: 2,
+              ),
             ),
-          ],
-        ),
+            alignment: Alignment.center,
+            child: Text(
+              (user?.name.isNotEmpty ?? false)
+                  ? user!.name[0].toUpperCase()
+                  : '?',
+              style: AppTextStyles.headline.copyWith(
+                color: AppColors.textOnPrimary,
+                fontSize: 34,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md + 2),
+          Text(
+            user?.name ?? 'Pengguna',
+            style:
+                AppTextStyles.headline.copyWith(color: AppColors.textOnPrimary),
+          ),
+          const SizedBox(height: AppSpacing.xs + 2),
+          Text(
+            user?.email ?? 'Belum login',
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.textOnPrimary.withValues(alpha: 0.9),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.textOnPrimary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(
+              user?.role.label ?? '-',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textOnPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _StatCard extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String value;
   final String label;
 
   const _StatCard({
-    required this.emoji,
+    required this.icon,
     required this.value,
     required this.label,
   });
@@ -371,7 +380,16 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 24)),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 17, color: AppColors.primaryDark),
+            ),
             const SizedBox(height: AppSpacing.xs + 2),
             Text(value, style: AppTextStyles.bodyStrong.copyWith(fontSize: 16)),
             const SizedBox(height: 2),
@@ -394,15 +412,23 @@ class _MenuTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
+  /// Merah untuk aksi yang mengakhiri sesi (Keluar), supaya tidak tertekan
+  /// tanpa sengaja saat mencari menu lain.
+  final bool destructive;
+
   const _MenuTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final accent = destructive ? AppColors.error : AppColors.primaryDark;
+    final accentBg = destructive ? AppColors.errorLight : AppColors.primaryLight;
+
     // P8: Material + InkWell = ripple feedback, target sentuh penuh,
     // dan otomatis terbaca sebagai tombol oleh screen reader.
     return Padding(
@@ -423,21 +449,28 @@ class _MenuTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
+                    color: accentBg,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(icon, size: 19, color: AppColors.primaryDark),
+                  child: Icon(icon, size: 19, color: accent),
                 ),
                 const SizedBox(width: AppSpacing.md + 2),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: AppTextStyles.bodyStrong),
+                      Text(
+                        title,
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          color: destructive
+                              ? AppColors.error
+                              : AppColors.textPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(subtitle, style: AppTextStyles.caption),
                     ],

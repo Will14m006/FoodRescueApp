@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
@@ -7,6 +8,7 @@ import 'package:food_rescue_backend/auth/jwt_service.dart';
 import 'package:food_rescue_backend/auth/login_throttle.dart';
 import 'package:food_rescue_backend/auth/password_hasher.dart';
 import 'package:food_rescue_backend/db/database.dart';
+import 'package:food_rescue_backend/media/photo_store.dart';
 import 'package:shelf/shelf.dart';
 
 /// Secret sintetis khusus test — tidak pernah dipakai server sungguhan.
@@ -37,6 +39,12 @@ class TestApi {
   final PasswordHasher hasher;
   final LoginThrottle throttle;
 
+  /// Folder upload sementara per instance test, dihapus saat [close].
+  late final Directory uploads = Directory.systemTemp.createTempSync(
+    'fr_uploads_',
+  );
+  late final PhotoStore photos = PhotoStore(directory: uploads.path);
+
   /// Semua pesan yang dicatat server (termasuk detail error internal).
   final logs = <String>[];
 
@@ -46,6 +54,7 @@ class TestApi {
     jwt: jwt,
     hasher: hasher,
     throttle: throttle,
+    photos: photos,
   );
 
   Future<Response> request(

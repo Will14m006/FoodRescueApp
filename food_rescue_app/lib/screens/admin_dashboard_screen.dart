@@ -150,16 +150,16 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      (label: 'Pengguna', value: '${stats.totalUsers}', emoji: '👥'),
-      (label: 'Toko', value: '${stats.stores}', emoji: '🏪'),
-      (label: 'Makanan', value: '${stats.activeFoods}', emoji: '🍱'),
-      (label: 'Pesanan', value: '${stats.totalOrders}', emoji: '🧾'),
+      (label: 'Pengguna', value: '${stats.totalUsers}', icon: Icons.people_alt_rounded),
+      (label: 'Toko', value: '${stats.stores}', icon: Icons.storefront_rounded),
+      (label: 'Makanan', value: '${stats.activeFoods}', icon: Icons.restaurant_rounded),
+      (label: 'Pesanan', value: '${stats.totalOrders}', icon: Icons.receipt_long_rounded),
       (
         label: 'Porsi terselamatkan',
         value: '${stats.portionsSaved}',
-        emoji: '🌱'
+        icon: Icons.eco_rounded
       ),
-      (label: 'Pendapatan', value: Formatters.rupiah(stats.revenue), emoji: '💵'),
+      (label: 'Pendapatan', value: Formatters.rupiah(stats.revenue), icon: Icons.payments_rounded),
     ];
 
     return Padding(
@@ -194,10 +194,20 @@ class _StatsGrid extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Text(card.emoji,
-                                style: const TextStyle(fontSize: 15)),
+                            Icon(
+                              card.icon,
+                              size: 15,
+                              color: AppColors.primaryDark,
+                            ),
                             const SizedBox(width: 4),
-                            Text(card.label, style: AppTextStyles.caption),
+                            Expanded(
+                              child: Text(
+                                card.label,
+                                style: AppTextStyles.caption,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 2),

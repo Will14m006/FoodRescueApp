@@ -6,6 +6,10 @@ import '../db/database.dart';
 /// beberapa route — dan supaya field yang tidak boleh keluar (hash password)
 /// tidak bisa "tidak sengaja" ikut di salah satu endpoint.
 
+/// URL foto menu. Relatif (`/uploads/x.jpg`) supaya host server boleh
+/// berubah tanpa menyentuh database; klien menempelkan base URL-nya sendiri.
+String? _imageUrl(String? file) => file == null ? null : '/uploads/$file';
+
 Map<String, dynamic> userJson(User user) => {
       'id': user.id,
       'email': user.email,
@@ -38,6 +42,7 @@ Map<String, dynamic> foodJson(
       'quota': food.quota,
       'pickupWindow': food.pickupWindow,
       'isActive': food.isActive,
+      'imageUrl': _imageUrl(food.imageFile),
       'createdAt': food.createdAt.toUtc().toIso8601String(),
     };
 

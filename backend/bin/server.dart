@@ -6,6 +6,7 @@ import 'package:food_rescue_backend/auth/login_throttle.dart';
 import 'package:food_rescue_backend/auth/password_hasher.dart';
 import 'package:food_rescue_backend/config.dart';
 import 'package:food_rescue_backend/db/database.dart';
+import 'package:food_rescue_backend/media/photo_store.dart';
 
 void logLine(String message) {
   // Timestamp ISO-8601 UTC: mudah dibaca mesin maupun manusia.
@@ -29,6 +30,8 @@ Future<void> main(List<String> args) async {
   final db = AppDatabase.open(config);
   final jwt = JwtService(secret: config.jwtSecret, ttl: config.jwtTtl);
   final hasher = PasswordHasher(cost: config.bcryptCost);
+  final photos = PhotoStore(directory: config.uploadDirectory);
+  Directory(config.uploadDirectory).createSync(recursive: true);
 
   // Bind ke loopback: server lokal tidak boleh terbuka ke jaringan sekitar
   // secara default. Untuk mengakses dari HP di Wi-Fi yang sama, ubah secara
@@ -42,6 +45,7 @@ Future<void> main(List<String> args) async {
     jwt: jwt,
     hasher: hasher,
     throttle: LoginThrottle(),
+    photos: photos,
     corsOrigins: config.corsOrigins,
   );
 

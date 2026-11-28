@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:food_rescue_backend/app.dart';
+import 'package:food_rescue_backend/media/photo_store.dart';
 import 'package:food_rescue_backend/auth/jwt_service.dart';
 import 'package:food_rescue_backend/auth/login_throttle.dart';
 import 'package:food_rescue_backend/auth/password_hasher.dart';
@@ -10,15 +13,20 @@ import 'package:test/test.dart';
 void main() {
   late AppDatabase db;
   late Handler handler;
+  late PhotoStore photos;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    photos = PhotoStore(
+      directory: Directory.systemTemp.createTempSync('fr_cors_').path,
+    );
     handler = buildHandler(
       log: (_) {},
       db: db,
       jwt: JwtService(secret: 'x' * 40, ttl: const Duration(minutes: 1)),
       hasher: PasswordHasher(cost: 10),
       throttle: LoginThrottle(),
+      photos: photos,
       corsOrigins: const ['http://localhost:5000'],
     );
   });
@@ -39,6 +47,7 @@ void main() {
       jwt: JwtService(secret: 'x' * 40, ttl: const Duration(minutes: 1)),
       hasher: PasswordHasher(cost: 10),
       throttle: LoginThrottle(),
+      photos: photos,
     );
     final response = await Future.sync(() => noCors(Request(
           'GET',

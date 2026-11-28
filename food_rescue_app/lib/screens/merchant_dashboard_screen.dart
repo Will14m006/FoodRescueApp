@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/media/food_photo_picker.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
@@ -15,6 +18,7 @@ import '../repositories/merchant_repository.dart';
 import '../routes/app_routes.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/empty_state_view.dart';
+import '../widgets/food_image.dart';
 import '../widgets/responsive_body.dart';
 
 /// Dashboard merchant: toko, stok, dan pesanan yang harus diverifikasi.
@@ -251,10 +255,10 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      (label: 'Pesanan', value: '${stats.totalOrders}', emoji: '🧾'),
-      (label: 'Porsi terjual', value: '${stats.portionsSold}', emoji: '🍱'),
-      (label: 'Pendapatan', value: Formatters.rupiah(stats.revenue), emoji: '💵'),
-      (label: 'Sisa porsi', value: '${stats.remainingQuota}', emoji: '📦'),
+      (label: 'Pesanan', value: '${stats.totalOrders}', icon: Icons.receipt_long_rounded),
+      (label: 'Porsi terjual', value: '${stats.portionsSold}', icon: Icons.restaurant_rounded),
+      (label: 'Pendapatan', value: Formatters.rupiah(stats.revenue), icon: Icons.payments_rounded),
+      (label: 'Sisa porsi', value: '${stats.remainingQuota}', icon: Icons.inventory_2_rounded),
     ];
 
     return LayoutBuilder(
@@ -269,7 +273,7 @@ class _StatsGrid extends StatelessWidget {
           children: [
             for (final card in cards)
               SizedBox(width: width, child: _StatTile(
-                emoji: card.emoji,
+                icon: card.icon,
                 label: card.label,
                 value: card.value,
               )),
@@ -282,12 +286,12 @@ class _StatsGrid extends StatelessWidget {
 
 class _StatTile extends StatelessWidget {
   const _StatTile({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.value,
   });
 
-  final String emoji;
+  final IconData icon;
   final String label;
   final String value;
 
@@ -303,8 +307,17 @@ class _StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: AppSpacing.xs),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 16, color: AppColors.primaryDark),
+          ),
+          const SizedBox(height: AppSpacing.xs + 2),
           Text(
             value,
             style: AppTextStyles.bodyStrong.copyWith(fontSize: 16),
@@ -474,7 +487,7 @@ class _FoodRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm + 2),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -482,8 +495,15 @@ class _FoodRow extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Text(food.emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: FoodImage(food: food, showEmojiFallback: false),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm + 2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,6 +547,25 @@ class _FoodRow extends ConsumerWidget {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(
+                food.imageUrl == null ? 'Tambah foto' : 'Ganti foto',
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _changePhoto(context, ref);
+              },
+            ),
+            if (food.imageUrl != null)
+              ListTile(
+                leading: const Icon(Icons.hide_image_outlined),
+                title: const Text('Hapus foto'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _removePhoto(context, ref);
+                },
+              ),
+            ListTile(
               leading: const Icon(Icons.inventory_2_outlined),
               title: const Text('Ubah stok'),
               onTap: () {
@@ -565,6 +604,42 @@ class _FoodRow extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _changePhoto(BuildContext context, WidgetRef ref) async {
+    final picked = await showPhotoSourceSheet(context);
+    if (picked == null) return;
+
+    // Batas server 2 MB. Ditahan di klien supaya tidak membuang bandwidth
+    // hanya untuk ditolak 413.
+    if (picked.bytes.length > 2 * 1024 * 1024) {
+      if (context.mounted) {
+        AppFeedback.error(context, 'Foto terlalu besar (maksimal 2 MB).');
+      }
+      return;
+    }
+
+    try {
+      await ref.read(merchantFoodsProvider.notifier).uploadPhoto(
+            foodId: food.id,
+            bytes: picked.bytes,
+            contentType: picked.contentType,
+          );
+      if (context.mounted) AppFeedback.success(context, 'Foto diperbarui.');
+    } on Exception catch (e) {
+      if (context.mounted) AppFeedback.error(context, '$e');
+    }
+  }
+
+  Future<void> _removePhoto(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(merchantFoodsProvider.notifier).removePhoto(food.id);
+      if (context.mounted) {
+        AppFeedback.info(context, 'Foto dihapus, memakai gambar bawaan.');
+      }
+    } on Exception catch (e) {
+      if (context.mounted) AppFeedback.error(context, '$e');
+    }
   }
 
   Future<void> _toggleActive(BuildContext context, WidgetRef ref) async {
@@ -912,26 +987,67 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
   final quota = TextEditingController(text: '5');
   final window = TextEditingController(text: '19:00 - 21:00');
 
+  // Foto dipilih dulu, diunggah SETELAH makanan berhasil dibuat — server
+  // membutuhkan id makanan, dan makanan yang gagal dibuat tidak boleh
+  // meninggalkan file yatim.
+  PickedPhoto? picked;
+
   final save = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Tambah makanan', style: AppTextStyles.headline),
-            const SizedBox(height: AppSpacing.lg),
-            TextField(
-              controller: name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Nama makanan'),
-            ),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Tambah makanan', style: AppTextStyles.headline),
+              const SizedBox(height: AppSpacing.lg),
+              // Pratinjau foto
+              InkWell(
+                onTap: () async {
+                  final result = await showPhotoSourceSheet(sheetContext);
+                  if (result != null) setSheetState(() => picked = result);
+                },
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                child: Container(
+                  height: 130,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(color: AppColors.outline),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: picked == null
+                      ? const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo_outlined,
+                                color: AppColors.primary, size: 26),
+                            SizedBox(height: 6),
+                            Text('Tambah foto menu (opsional)',
+                                style: TextStyle(fontSize: 12)),
+                          ],
+                        )
+                      : Image.memory(
+                          Uint8List.fromList(picked!.bytes),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              TextField(
+                controller: name,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Nama makanan'),
+              ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: description,
@@ -986,6 +1102,7 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
           ],
         ),
       ),
+      ),
     ),
   );
 
@@ -1011,7 +1128,7 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
       throw StateError('Harga/kuota tidak valid (diskon ≤ harga asli).');
     }
 
-    await ref.read(merchantFoodsProvider.notifier).create(
+    final created = await ref.read(merchantFoodsProvider.notifier).create(
           name: name.text.trim(),
           description: description.text.trim(),
           originalPrice: originalPrice,
@@ -1021,6 +1138,25 @@ Future<void> _showAddFoodSheet(BuildContext context, WidgetRef ref) async {
               ? '19:00 - 21:00'
               : window.text.trim(),
         );
+
+    // Foto diunggah setelah makanan punya id. Gagal unggah tidak membatalkan
+    // makanan yang sudah dibuat — pesan error saja, makanan tetap ada tanpa
+    // foto (bisa ditambahkan lewat menu Kelola).
+    if (picked != null && created != null) {
+      try {
+        await ref.read(merchantFoodsProvider.notifier).uploadPhoto(
+              foodId: created.id,
+              bytes: picked!.bytes,
+              contentType: picked!.contentType,
+            );
+      } on Exception catch (e) {
+        if (context.mounted) {
+          AppFeedback.error(context, 'Makanan dibuat, tapi foto gagal: $e');
+        }
+        return;
+      }
+    }
+
     if (context.mounted) {
       AppFeedback.success(context, 'Makanan ditambahkan.');
       ref.invalidate(merchantStatsProvider);

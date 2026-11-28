@@ -5,6 +5,8 @@ import '../auth/jwt_service.dart';
 import '../auth/login_throttle.dart';
 import '../auth/password_hasher.dart';
 import '../db/database.dart';
+import '../media/photo_store.dart';
+import '../media/uploads_handler.dart';
 import '../middleware/api_response.dart';
 import 'auth_routes.dart';
 import 'admin_routes.dart';
@@ -22,6 +24,7 @@ Router buildRouter({
   required JwtService jwt,
   required PasswordHasher hasher,
   required LoginThrottle throttle,
+  required PhotoStore photos,
 }) {
   final router = Router();
 
@@ -40,9 +43,19 @@ Router buildRouter({
     authRoutes(db: db, jwt: jwt, hasher: hasher, throttle: throttle).call,
   );
   router.mount('/', merchantRoutes(db: db, jwt: jwt).call);
-  router.mount('/', foodRoutes(db: db, jwt: jwt).call);
+  router.mount('/', foodRoutes(db: db, jwt: jwt, photos: photos).call);
   router.mount('/', orderRoutes(db: db, jwt: jwt).call);
   router.mount('/', adminRoutes(db: db, jwt: jwt).call);
+
+  // Foto menu. Sebelum catch-all 404, dan sengaja tanpa auth: katalog publik
+  // harus bisa menampilkan gambar tanpa token.
+  router.get(
+    '/uploads/<name|.*>',
+    (Request request) => serveUpload(
+      directory: photos.directory,
+      name: request.params['name'],
+    ),
+  );
 
   // Rute tak dikenal dijawab JSON, bukan halaman bawaan shelf.
   router.all('/<ignored|.*>', (Request request) {

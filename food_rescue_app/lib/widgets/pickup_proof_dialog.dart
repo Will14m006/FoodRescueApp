@@ -123,7 +123,8 @@ class PickupProofDialog extends ConsumerWidget {
         TextButton(
           onPressed: () {
             ref.read(cameraProvider.notifier).clear();
-            Navigator.pop(context, false);
+            // Route-nya DialogRoute<Uint8List>: hasil batal = null, bukan false.
+            Navigator.pop(context);
           },
           child: const Text('Batal'),
         ),

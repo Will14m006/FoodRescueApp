@@ -883,6 +883,17 @@ class $SurplusFoodsTable extends SurplusFoods
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _imageFileMeta = const VerificationMeta(
+    'imageFile',
+  );
+  @override
+  late final GeneratedColumn<String> imageFile = GeneratedColumn<String>(
+    'image_file',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -906,6 +917,7 @@ class $SurplusFoodsTable extends SurplusFoods
     quota,
     pickupWindow,
     isActive,
+    imageFile,
     createdAt,
   ];
   @override
@@ -995,6 +1007,12 @@ class $SurplusFoodsTable extends SurplusFoods
         isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
       );
     }
+    if (data.containsKey('image_file')) {
+      context.handle(
+        _imageFileMeta,
+        imageFile.isAcceptableOrUnknown(data['image_file']!, _imageFileMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1046,6 +1064,10 @@ class $SurplusFoodsTable extends SurplusFoods
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      imageFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_file'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1069,6 +1091,11 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
   final int quota;
   final String pickupWindow;
   final bool isActive;
+
+  /// Nama file foto menu di `data/uploads/`, bukan URL penuh — host bisa
+  /// berubah (localhost vs LAN) tanpa merusak data. Null = pakai gambar
+  /// bawaan aplikasi sesuai kategori.
+  final String? imageFile;
   final DateTime createdAt;
   const SurplusFood({
     required this.id,
@@ -1080,6 +1107,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
     required this.quota,
     required this.pickupWindow,
     required this.isActive,
+    this.imageFile,
     required this.createdAt,
   });
   @override
@@ -1094,6 +1122,9 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
     map['quota'] = Variable<int>(quota);
     map['pickup_window'] = Variable<String>(pickupWindow);
     map['is_active'] = Variable<bool>(isActive);
+    if (!nullToAbsent || imageFile != null) {
+      map['image_file'] = Variable<String>(imageFile);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1109,6 +1140,9 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
       quota: Value(quota),
       pickupWindow: Value(pickupWindow),
       isActive: Value(isActive),
+      imageFile: imageFile == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageFile),
       createdAt: Value(createdAt),
     );
   }
@@ -1128,6 +1162,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
       quota: serializer.fromJson<int>(json['quota']),
       pickupWindow: serializer.fromJson<String>(json['pickupWindow']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      imageFile: serializer.fromJson<String?>(json['imageFile']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1144,6 +1179,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
       'quota': serializer.toJson<int>(quota),
       'pickupWindow': serializer.toJson<String>(pickupWindow),
       'isActive': serializer.toJson<bool>(isActive),
+      'imageFile': serializer.toJson<String?>(imageFile),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1158,6 +1194,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
     int? quota,
     String? pickupWindow,
     bool? isActive,
+    Value<String?> imageFile = const Value.absent(),
     DateTime? createdAt,
   }) => SurplusFood(
     id: id ?? this.id,
@@ -1169,6 +1206,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
     quota: quota ?? this.quota,
     pickupWindow: pickupWindow ?? this.pickupWindow,
     isActive: isActive ?? this.isActive,
+    imageFile: imageFile.present ? imageFile.value : this.imageFile,
     createdAt: createdAt ?? this.createdAt,
   );
   SurplusFood copyWithCompanion(SurplusFoodsCompanion data) {
@@ -1192,6 +1230,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
           ? data.pickupWindow.value
           : this.pickupWindow,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      imageFile: data.imageFile.present ? data.imageFile.value : this.imageFile,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1208,6 +1247,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
           ..write('quota: $quota, ')
           ..write('pickupWindow: $pickupWindow, ')
           ..write('isActive: $isActive, ')
+          ..write('imageFile: $imageFile, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -1224,6 +1264,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
     quota,
     pickupWindow,
     isActive,
+    imageFile,
     createdAt,
   );
   @override
@@ -1239,6 +1280,7 @@ class SurplusFood extends DataClass implements Insertable<SurplusFood> {
           other.quota == this.quota &&
           other.pickupWindow == this.pickupWindow &&
           other.isActive == this.isActive &&
+          other.imageFile == this.imageFile &&
           other.createdAt == this.createdAt);
 }
 
@@ -1252,6 +1294,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
   final Value<int> quota;
   final Value<String> pickupWindow;
   final Value<bool> isActive;
+  final Value<String?> imageFile;
   final Value<DateTime> createdAt;
   const SurplusFoodsCompanion({
     this.id = const Value.absent(),
@@ -1263,6 +1306,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
     this.quota = const Value.absent(),
     this.pickupWindow = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.imageFile = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   SurplusFoodsCompanion.insert({
@@ -1275,6 +1319,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
     required int quota,
     required String pickupWindow,
     this.isActive = const Value.absent(),
+    this.imageFile = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : merchantId = Value(merchantId),
        name = Value(name),
@@ -1292,6 +1337,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
     Expression<int>? quota,
     Expression<String>? pickupWindow,
     Expression<bool>? isActive,
+    Expression<String>? imageFile,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -1304,6 +1350,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
       if (quota != null) 'quota': quota,
       if (pickupWindow != null) 'pickup_window': pickupWindow,
       if (isActive != null) 'is_active': isActive,
+      if (imageFile != null) 'image_file': imageFile,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -1318,6 +1365,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
     Value<int>? quota,
     Value<String>? pickupWindow,
     Value<bool>? isActive,
+    Value<String?>? imageFile,
     Value<DateTime>? createdAt,
   }) {
     return SurplusFoodsCompanion(
@@ -1330,6 +1378,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
       quota: quota ?? this.quota,
       pickupWindow: pickupWindow ?? this.pickupWindow,
       isActive: isActive ?? this.isActive,
+      imageFile: imageFile ?? this.imageFile,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -1364,6 +1413,9 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (imageFile.present) {
+      map['image_file'] = Variable<String>(imageFile.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1382,6 +1434,7 @@ class SurplusFoodsCompanion extends UpdateCompanion<SurplusFood> {
           ..write('quota: $quota, ')
           ..write('pickupWindow: $pickupWindow, ')
           ..write('isActive: $isActive, ')
+          ..write('imageFile: $imageFile, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2322,6 +2375,7 @@ typedef $$SurplusFoodsTableCreateCompanionBuilder =
       required int quota,
       required String pickupWindow,
       Value<bool> isActive,
+      Value<String?> imageFile,
       Value<DateTime> createdAt,
     });
 typedef $$SurplusFoodsTableUpdateCompanionBuilder =
@@ -2335,6 +2389,7 @@ typedef $$SurplusFoodsTableUpdateCompanionBuilder =
       Value<int> quota,
       Value<String> pickupWindow,
       Value<bool> isActive,
+      Value<String?> imageFile,
       Value<DateTime> createdAt,
     });
 
@@ -2389,6 +2444,11 @@ class $$SurplusFoodsTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageFile => $composableBuilder(
+    column: $table.imageFile,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2452,6 +2512,11 @@ class $$SurplusFoodsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get imageFile => $composableBuilder(
+    column: $table.imageFile,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2504,6 +2569,9 @@ class $$SurplusFoodsTableAnnotationComposer
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
+  GeneratedColumn<String> get imageFile =>
+      $composableBuilder(column: $table.imageFile, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -2548,6 +2616,7 @@ class $$SurplusFoodsTableTableManager
                 Value<int> quota = const Value.absent(),
                 Value<String> pickupWindow = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<String?> imageFile = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => SurplusFoodsCompanion(
                 id: id,
@@ -2559,6 +2628,7 @@ class $$SurplusFoodsTableTableManager
                 quota: quota,
                 pickupWindow: pickupWindow,
                 isActive: isActive,
+                imageFile: imageFile,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -2572,6 +2642,7 @@ class $$SurplusFoodsTableTableManager
                 required int quota,
                 required String pickupWindow,
                 Value<bool> isActive = const Value.absent(),
+                Value<String?> imageFile = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => SurplusFoodsCompanion.insert(
                 id: id,
@@ -2583,6 +2654,7 @@ class $$SurplusFoodsTableTableManager
                 quota: quota,
                 pickupWindow: pickupWindow,
                 isActive: isActive,
+                imageFile: imageFile,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

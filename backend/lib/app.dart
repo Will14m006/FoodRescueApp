@@ -7,6 +7,7 @@ import 'auth/jwt_service.dart';
 import 'auth/login_throttle.dart';
 import 'auth/password_hasher.dart';
 import 'db/database.dart';
+import 'media/photo_store.dart';
 import 'middleware/access_log.dart';
 import 'middleware/api_response.dart';
 import 'middleware/cors.dart';
@@ -33,8 +34,16 @@ Handler buildHandler({
   required JwtService jwt,
   required PasswordHasher hasher,
   required LoginThrottle throttle,
+  required PhotoStore photos,
   List<String> corsOrigins = const [],
 }) {
+  final router = buildRouter(
+    db: db,
+    jwt: jwt,
+    hasher: hasher,
+    throttle: throttle,
+    photos: photos,
+  );
   return const Pipeline()
       // SecurityHeaders paling luar: preflight 204 buatan CORS pun tetap
       // mendapat header keamanan.
@@ -47,9 +56,7 @@ Handler buildHandler({
           log('UNHANDLED: $error\n$stack');
         }),
       )
-      .addHandler(
-        buildRouter(db: db, jwt: jwt, hasher: hasher, throttle: throttle).call,
-      );
+      .addHandler(router.call);
 }
 
 /// Menjalankan server. Dipanggil dari `bin/server.dart` dan dari test.

@@ -4,6 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/surplus_food_model.dart';
+import 'food_image.dart';
 
 /// Card untuk satu item makanan surplus di katalog (Buyer Feed).
 ///
@@ -43,24 +44,37 @@ class FoodCard extends StatelessWidget {
           // === Thumbnail ===
           Stack(
             children: [
-              Container(
-                height: 120,
+              SizedBox(
+                height: 150,
                 width: double.infinity,
-                decoration: BoxDecoration(
+                child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(AppRadius.xl),
                   ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primaryLight,
-                      AppColors.primary.withValues(alpha: 0.25),
-                    ],
+                  child: FoodImage(food: food),
+                ),
+              ),
+              // Gradasi bawah supaya badge tetap terbaca di atas foto terang.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppRadius.xl),
+                      ),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.18),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.10),
+                        ],
+                        stops: const [0, 0.45, 1],
+                      ),
+                    ),
                   ),
                 ),
-                alignment: Alignment.center,
-                child: Text(food.emoji, style: const TextStyle(fontSize: 48)),
               ),
               // Badge diskon
               Positioned(

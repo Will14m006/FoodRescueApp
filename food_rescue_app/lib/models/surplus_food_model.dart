@@ -31,6 +31,10 @@ class SurplusFood {
   final FoodCategory category;
   final String emoji;
 
+  /// Path foto dari server (`/uploads/x.jpg`), null = pakai gambar bawaan
+  /// sesuai kategori. Disimpan relatif supaya host boleh berubah.
+  final String? imageUrl;
+
   const SurplusFood({
     required this.id,
     required this.merchantName,
@@ -44,6 +48,7 @@ class SurplusFood {
     this.isActive = true,
     this.category = FoodCategory.main,
     this.emoji = '🍽️',
+    this.imageUrl,
   });
 
   bool get isAvailable => isActive && quota > 0;
@@ -100,6 +105,9 @@ class SurplusFood {
       isActive: json['isActive'] as bool? ?? true,
       category: _categoryFor(name),
       emoji: _emojiFor(name),
+      imageUrl: (json['imageUrl'] as String?)?.trim().isNotEmpty == true
+          ? (json['imageUrl'] as String).trim()
+          : null,
     );
   }
 
@@ -118,6 +126,7 @@ class SurplusFood {
       isActive: isActive,
       category: category,
       emoji: emoji,
+      imageUrl: imageUrl,
     );
   }
 

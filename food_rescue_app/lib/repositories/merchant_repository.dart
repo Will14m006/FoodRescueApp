@@ -113,6 +113,21 @@ abstract class MerchantRepository {
     required String token,
     required int foodId,
   });
+
+  /// Unggah foto menu. [contentType] harus `image/jpeg`, `image/png`, atau
+  /// `image/webp` — server memeriksa isi file juga, bukan hanya header.
+  Future<SurplusFood> uploadPhoto({
+    required String token,
+    required int foodId,
+    required List<int> bytes,
+    required String contentType,
+  });
+
+  /// Hapus foto → kembali memakai gambar bawaan aplikasi.
+  Future<SurplusFood> removePhoto({
+    required String token,
+    required int foodId,
+  });
 }
 
 class ApiMerchantRepository implements MerchantRepository {
@@ -233,13 +248,13 @@ class ApiMerchantRepository implements MerchantRepository {
       path: '/foods/$foodId',
       token: token,
       body: {
-        if (name != null) 'name': name,
-        if (description != null) 'description': description,
-        if (originalPrice != null) 'originalPrice': originalPrice,
-        if (discountPrice != null) 'discountPrice': discountPrice,
-        if (quota != null) 'quota': quota,
-        if (pickupWindow != null) 'pickupWindow': pickupWindow,
-        if (isActive != null) 'isActive': isActive,
+        'name': ?name,
+        'description': ?description,
+        'originalPrice': ?originalPrice,
+        'discountPrice': ?discountPrice,
+        'quota': ?quota,
+        'pickupWindow': ?pickupWindow,
+        'isActive': ?isActive,
       },
     );
     return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
@@ -253,6 +268,35 @@ class ApiMerchantRepository implements MerchantRepository {
     final body = await api.request(
       method: 'DELETE',
       path: '/foods/$foodId',
+      token: token,
+    );
+    return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SurplusFood> uploadPhoto({
+    required String token,
+    required int foodId,
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    final body = await api.uploadBytes(
+      path: '/foods/$foodId/photo',
+      bytes: bytes,
+      contentType: contentType,
+      token: token,
+    );
+    return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SurplusFood> removePhoto({
+    required String token,
+    required int foodId,
+  }) async {
+    final body = await api.request(
+      method: 'DELETE',
+      path: '/foods/$foodId/photo',
       token: token,
     );
     return SurplusFood.fromJson(body['food'] as Map<String, dynamic>);

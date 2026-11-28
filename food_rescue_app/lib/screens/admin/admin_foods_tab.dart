@@ -6,6 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
 import '../../providers/admin_provider.dart';
+import '../../widgets/food_image.dart';
 
 /// Tab "Makanan": katalog surplus semua toko, termasuk yang sudah nonaktif.
 class AdminFoodsTab extends ConsumerWidget {
@@ -64,7 +65,14 @@ class AdminFoodsTab extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Text(food.emoji, style: const TextStyle(fontSize: 22)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: FoodImage(food: food, showEmojiFallback: false),
+                      ),
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Column(

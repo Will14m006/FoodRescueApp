@@ -54,6 +54,12 @@ class SurplusFoods extends Table {
   IntColumn get quota => integer()();
   TextColumn get pickupWindow => text()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+
+  /// Nama file foto menu di `data/uploads/`, bukan URL penuh — host bisa
+  /// berubah (localhost vs LAN) tanpa merusak data. Null = pakai gambar
+  /// bawaan aplikasi sesuai kategori.
+  TextColumn get imageFile => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -99,7 +105,7 @@ class AppDatabase extends _$AppDatabase {
   static bool logStatements = false;
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +117,11 @@ class AppDatabase extends _$AppDatabase {
           // otomatis aktif, jadi tidak ada user yang tiba-tiba terkunci.
           if (from < 2) {
             await m.addColumn(users, users.isActive);
+          }
+          // v3: foto menu unggahan merchant. Null = gambar bawaan, jadi
+          // makanan lama tetap tampil tanpa perlu diisi ulang.
+          if (from < 3) {
+            await m.addColumn(surplusFoods, surplusFoods.imageFile);
           }
         },
         beforeOpen: (details) async {

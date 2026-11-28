@@ -5,21 +5,27 @@ import 'package:shelf_router/shelf_router.dart';
 import '../auth/auth_middleware.dart';
 import '../auth/jwt_service.dart';
 import '../db/database.dart';
+import '../media/photo_store.dart';
 import '../middleware/api_response.dart';
 import 'mappers.dart';
 import 'merchant_routes.dart';
 
 /// Katalog surplus.
 ///
-///   GET    /foods            publik, hanya yang aktif & masih ada kuota
-///   GET    /foods/<id>       publik
-///   POST   /foods            merchant (butuh profil toko)
-///   PATCH  /foods/<id>       merchant pemilik
-///   DELETE /foods/<id>       merchant pemilik → `isActive = false`
+///   GET    /foods              publik, hanya yang aktif & masih ada kuota
+///   GET    /foods/<id>         publik
+///   POST   /foods              merchant (butuh profil toko)
+///   POST   /foods/<id>/photo   merchant pemilik, body = biner gambar
+///   PATCH  /foods/<id>         merchant pemilik
+///   DELETE /foods/<id>         merchant pemilik → `isActive = false`
 ///
 /// Food **tidak pernah** dihapus dari tabel: pesanan lama harus tetap bisa
 /// menunjuk ke makanannya (Architecture.md §5).
-Router foodRoutes({required AppDatabase db, required JwtService jwt}) {
+Router foodRoutes({
+  required AppDatabase db,
+  required JwtService jwt,
+  required PhotoStore photos,
+}) {
   final router = Router();
   final merchantOnly = authGuard(jwt, roles: {UserRole.merchant});
 
@@ -95,6 +101,53 @@ Router foodRoutes({required AppDatabase db, required JwtService jwt}) {
 
       return ApiResponse.created({
         'food': foodJson(food, merchantName: merchant.storeName),
+      });
+    }),
+  );
+
+  // Unggah foto menu. Body = biner gambar mentah (bukan multipart) supaya
+  // tidak perlu dependency parser baru; klien mengirim bytes langsung dengan
+  // Content-Type gambar.
+  router.post(
+    '/foods/<id>/photo',
+    merchantOnly((Request request) async {
+      final auth = authenticatedUser(request);
+      final food = await _ownedFood(db, auth.id, request.params['id']);
+      final name = await photos.save(request);
+
+      final updated = food.copyWith(imageFile: Value(name));
+      await db.update(db.surplusFoods).replace(updated);
+      // Foto lama dihapus SETELAH baris tersimpan: kalau update gagal, foto
+      // lama yang masih dipakai tidak boleh sudah lenyap.
+      await photos.deleteQuietly(food.imageFile);
+
+      final merchant = await _merchantById(db, food.merchantId);
+      return ApiResponse.ok({
+        'food': foodJson(
+          updated,
+          merchantName: merchant?.storeName ?? 'Mitra Food Rescue',
+        ),
+      });
+    }),
+  );
+
+  // Hapus foto → kembali memakai gambar bawaan aplikasi.
+  router.delete(
+    '/foods/<id>/photo',
+    merchantOnly((Request request) async {
+      final auth = authenticatedUser(request);
+      final food = await _ownedFood(db, auth.id, request.params['id']);
+
+      final updated = food.copyWith(imageFile: const Value(null));
+      await db.update(db.surplusFoods).replace(updated);
+      await photos.deleteQuietly(food.imageFile);
+
+      final merchant = await _merchantById(db, food.merchantId);
+      return ApiResponse.ok({
+        'food': foodJson(
+          updated,
+          merchantName: merchant?.storeName ?? 'Mitra Food Rescue',
+        ),
       });
     }),
   );

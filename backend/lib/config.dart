@@ -16,6 +16,7 @@ class AppConfig {
     required this.databaseFile,
     required this.logSql,
     required this.bcryptCost,
+    this.uploadDirectory = 'data/uploads',
     this.corsOrigins = const [],
   });
 
@@ -24,6 +25,9 @@ class AppConfig {
   final Duration jwtTtl;
   final String databaseFile;
   final bool logSql;
+
+  /// Folder foto menu. Default `data/uploads`, sejajar dengan file database.
+  final String uploadDirectory;
 
   /// Origin yang boleh memanggil API dari browser. Kosong = CORS mati
   /// (default aman: client Android tidak butuh CORS).
@@ -77,6 +81,7 @@ class AppConfig {
       databaseFile: read('DATABASE_FILE') ?? 'data/food_rescue.db',
       logSql: (read('LOG_SQL') ?? 'false').toLowerCase() == 'true',
       bcryptCost: int.tryParse(read('BCRYPT_COST') ?? '') ?? 12,
+      uploadDirectory: read('UPLOAD_DIR') ?? 'data/uploads',
       corsOrigins: (read('CORS_ORIGINS') ?? '')
           .split(',')
           .map((s) => s.trim())

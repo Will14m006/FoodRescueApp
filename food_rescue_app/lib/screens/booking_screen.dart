@@ -14,6 +14,7 @@ import '../providers/catalog_provider.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/circle_icon_button.dart';
+import '../widgets/food_image.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/responsive_body.dart';
 
@@ -286,19 +287,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           ),
                           child: Row(
                             children: [
-                              Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryLight,
-                                  borderRadius: const BorderRadius.horizontal(
-                                    left: Radius.circular(AppRadius.xl),
-                                  ),
+                              ClipRRect(
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(AppRadius.xl),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  food.emoji,
-                                  style: const TextStyle(fontSize: 40),
+                                child: SizedBox(
+                                  width: 88,
+                                  height: 88,
+                                  child: FoodImage(food: food),
                                 ),
                               ),
                               Expanded(

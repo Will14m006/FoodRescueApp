@@ -111,6 +111,39 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
     ref.invalidate(catalogProvider);
   }
 
+  /// Unggah foto menu lalu segarkan katalog.
+  Future<void> uploadPhoto({
+    required int foodId,
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    final updated = await ref.read(merchantRepositoryProvider).uploadPhoto(
+          token: user.token,
+          foodId: foodId,
+          bytes: bytes,
+          contentType: contentType,
+        );
+
+    _replace(updated);
+    ref.invalidate(catalogProvider);
+  }
+
+  Future<void> removePhoto(int foodId) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    final updated = await ref.read(merchantRepositoryProvider).removePhoto(
+          token: user.token,
+          foodId: foodId,
+        );
+
+    _replace(updated);
+    ref.invalidate(catalogProvider);
+  }
+
   void _replace(SurplusFood updated) {
     final current = state.valueOrNull ?? const <SurplusFood>[];
     state = AsyncData([
@@ -118,7 +151,9 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
     ]);
   }
 
-  Future<void> create({
+  /// Membuat makanan dan mengembalikannya, supaya pemanggil bisa langsung
+  /// mengunggah foto (foto butuh id makanan yang baru dibuat).
+  Future<SurplusFood?> create({
     required String name,
     required String description,
     required int originalPrice,
@@ -127,7 +162,7 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
     required String pickupWindow,
   }) async {
     final user = ref.read(currentUserProvider);
-    if (user == null) return;
+    if (user == null) return null;
 
     final created = await ref.read(merchantRepositoryProvider).createFood(
           token: user.token,
@@ -143,6 +178,7 @@ class MerchantFoodsNotifier extends AsyncNotifier<List<SurplusFood>> {
     state = AsyncData([created, ...current]);
     ref.invalidate(merchantStatsProvider);
     ref.invalidate(catalogProvider);
+    return created;
   }
 }
 

@@ -79,6 +79,48 @@ class ApiClient {
     );
   }
 
+  /// Kirim body biner (foto). Terpisah dari [request] karena body JSON dan
+  /// body biner punya header serta jalur decode yang berbeda — menggabungkan
+  /// keduanya membuat satu method dengan dua mode yang selalu perlu dicek.
+  Future<Map<String, dynamic>> uploadBytes({
+    required String path,
+    required List<int> bytes,
+    required String contentType,
+    String? token,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$path');
+    final headers = <String, String>{
+      'Content-Type': contentType,
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+
+    AppLog.info('POST ${uri.path} (${bytes.length} byte)');
+
+    final http.Response response;
+    try {
+      response = await _client
+          .post(uri, headers: headers, body: bytes)
+          .timeout(timeout);
+    } on Exception catch (e) {
+      AppLog.error('POST ${uri.path} gagal (jaringan)', e);
+      throw const ApiException(
+        'Tidak bisa mengunggah foto. Pastikan backend berjalan.',
+      );
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      AppLog.info('POST ${uri.path} -> ${response.statusCode}');
+      return _decodeObject(response.body, response.statusCode);
+    }
+
+    AppLog.warn('POST ${uri.path} -> HTTP ${response.statusCode}');
+    throw ApiException(
+      _serverMessage(response.body) ??
+          'Unggah foto gagal (HTTP ${response.statusCode}).',
+      statusCode: response.statusCode,
+    );
+  }
+
   Map<String, dynamic> _decodeObject(String raw, int statusCode) {
     if (raw.trim().isEmpty) return const {};
 

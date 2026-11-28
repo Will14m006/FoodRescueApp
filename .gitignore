@@ -13,6 +13,9 @@
 **/*.sqlite-shm
 **/*.db
 
+# Foto menu unggahan merchant. Data runtime, bukan bagian repo.
+backend/data/uploads/
+
 # JWT / signing material kalau suatu saat disimpan sebagai file
 *.pem
 *.p12
