@@ -22,10 +22,13 @@ Banyak restoran dan toko roti terpaksa membuang makanan layak konsumsi (*food wa
 
 * **Mobile Frontend:** Flutter (Dart)
 * **State Management:** Riverpod (`flutter_riverpod`)
-* **Backend & Web Admin:** Laravel (PHP) terintegrasi dengan RESTful API (direncanakan)
-* **Database Pusat:** MySQL (direncanakan)
+* **Backend:** Dart (`shelf` + `shelf_router`) — REST API, JWT, bcrypt
+* **Database Pusat:** SQLite lewat `drift` (file lokal server, migrasi berversi)
+* **Foto Menu:** disimpan sebagai file di `backend/data/uploads/`, nama acak
+  dibuat server; hanya JPEG/PNG/WebP yang diterima (diperiksa lewat magic bytes)
 * **Penyimpanan Lokal (Mobile):** SharedPreferences
-* **Advanced Features:** Autentikasi (HTTP), Lokasi (`geolocator`), Kamera (`image_picker`)
+* **Advanced Features:** Autentikasi (HTTP), Lokasi (`geolocator`), Kamera &
+  Galeri (`image_picker`)
 * **Environment:** Android Studio & Android SDK, VS Code, Flutter SDK
 
 Detail arsitektur dan struktur folder ada di [Architecture.md](./Architecture.md).
@@ -42,17 +45,37 @@ serta [docs/P10_ISSUES_SPACE_SYNC.md](./docs/P10_ISSUES_SPACE_SYNC.md).
 
 ## 📦 Instalasi & Menjalankan
 
+Backend (wajib jalan lebih dulu):
+
+```bash
+cd backend
+cp .env.example .env      # isi JWT_SECRET (min. 32 karakter) & BCRYPT_COST
+dart pub get
+dart run bin/server.dart
+```
+
+Aplikasi:
+
 ```bash
 cd food_rescue_app
 flutter pub get
 flutter run
 ```
 
-Menjalankan seluruh widget test:
+Untuk build web, origin CORS harus cocok persis:
 
 ```bash
 cd food_rescue_app
-flutter test
+flutter run -d chrome --web-port 5000 \
+  --dart-define=API_BASE_URL=http://127.0.0.1:8080
+# backend: CORS_ORIGINS=http://localhost:5000
+```
+
+Menjalankan seluruh test:
+
+```bash
+cd backend && dart test
+cd food_rescue_app && flutter test
 ```
 
 ## 📋 Progress Tracker
